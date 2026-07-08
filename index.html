@@ -89,7 +89,7 @@
     .modal-btn.secondary { background: #666; }
     textarea.paste-area { width: 100%; height: 120px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; box-sizing: border-box; resize: none; margin-bottom: 10px; font-family: inherit; font-size: 13px;}
 
-    /* 성적관리 사이드바 */
+    /* 왼쪽 성적관리 사이드바 */
     .sidebar-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 30; transition: opacity 0.3s; }
     .sidebar { position: absolute; top: 0; left: -280px; width: 260px; height: 100%; background: #fdfdfd; color: #333; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 40; display: flex; flex-direction: column; border-right: 2px solid var(--ewha-green); box-shadow: 5px 0 20px rgba(0,0,0,0.15); }
     .sidebar.open { left: 0; }
@@ -125,7 +125,6 @@
 <body>
 
   <div class="mobile-app">
-    <!-- 로그인 스플래시 화면 -->
     <div id="screen-splash" class="screen active">
       <div class="logo-container">
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
@@ -134,7 +133,6 @@
       <button id="guestBtn" style="background:#f0f0f0; border:none; color:#555;">데모 시연용 패스 (2학년 11반)</button>
     </div>
 
-    <!-- 대시보드 캘린더 화면 -->
     <div id="screen-dashboard" class="screen">
       <div class="header">
         <div class="menu-btn" onclick="toggleSidebar()">☰</div>
@@ -165,7 +163,6 @@
       <input type="file" id="fileUpload" accept=".pdf, image/*">
     </div>
 
-    <!-- 왼쪽 성적관리 사이드바 -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div class="sidebar" id="scoreSidebar">
       <div class="sidebar-header">
@@ -184,7 +181,6 @@
       </div>
     </div>
 
-    <!-- 팝업 모달들 -->
     <div class="modal-overlay" id="inputChoiceModal">
       <div class="ai-modal-content">
         <h3 style="margin-bottom: 20px;">수행평가 정보 추가</h3>
@@ -224,7 +220,7 @@
   </div>
 
   <script>
-    // 🚨 3. 새로고침 시 화면 깜빡임 없이 캘린더 화면 즉시 로드
+    // 🚨 [필수] 브라우저 세션 확인 후 캘린더 바로가기 적용 (화면 깜빡임 완벽 제거)
     if (sessionStorage.getItem('sessionActive') === 'true') {
       document.getElementById('screen-splash').classList.remove('active');
       document.getElementById('screen-dashboard').classList.add('active');
@@ -254,7 +250,7 @@
     let myScores = {};
     const classNamesList = ["인", "의", "예", "지", "진", "선", "미", "신", "희", "애", "효", "제"];
 
-    // 🚨 2. 홈버튼(로고) 클릭 시 완전히 첫 로그인 화면으로 복귀
+    // 🚨 홈 버튼 로직: 누르면 무조건 세션을 파기하고 첫 로그인 화면으로 튕김
     function goToSplash() {
       sessionStorage.removeItem('sessionActive');
       sessionStorage.removeItem('isGuest');
@@ -262,11 +258,15 @@
       document.getElementById('screen-splash').classList.add('active');
     }
 
+    // 🚨 새로고침 시 로그인 상태(게스트 포함) 유지
     window.addEventListener('DOMContentLoaded', () => {
       if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') === 'true') {
-        isGuest = true; currentUserUid = "demo_guest_id";
+        isGuest = true; 
+        let demoId = localStorage.getItem('turit_demo_id');
+        if(!demoId) { demoId = "guest_" + Date.now(); localStorage.setItem('turit_demo_id', demoId); }
+        currentUserUid = demoId;
         userGrade = 2; userClassNum = 11;
-        enterDashboard(false);
+        enterDashboard(false); // 경고창 없이 캘린더 조용히 입장
       }
     });
 
@@ -285,17 +285,17 @@
       }
     });
 
+    // 로그인 진행
     document.getElementById('loginBtn').addEventListener('click', () => {
       if (auth.currentUser) {
         handleLoginSuccess(auth.currentUser.email);
         return;
       }
-      
       auth.signInWithPopup(provider)
         .then((result) => { handleLoginSuccess(result.user.email); })
         .catch((error) => {
           console.warn("팝업 차단됨. 안전 모드 실행.", error);
-          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. 깃허브 도메인이 승인되지 않았을 수 있습니다.\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
+          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 브라우저 보안에 의해 차단되었습니다. (깃허브 도메인 승인 필요)\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
           if (fallbackEmail) {
             currentUserUid = "safe_mode_" + fallbackEmail;
             handleLoginSuccess(fallbackEmail);
@@ -321,34 +321,39 @@
 
     document.getElementById('guestBtn').addEventListener('click', () => {
       sessionStorage.setItem('isGuest', 'true');
-      isGuest = true; currentUserUid = "demo_guest_id";
+      isGuest = true; 
+      let demoId = localStorage.getItem('turit_demo_id');
+      if(!demoId) { demoId = "guest_" + Date.now(); localStorage.setItem('turit_demo_id', demoId); }
+      currentUserUid = demoId;
       userGrade = 2; userClassNum = 11; 
       enterDashboard(true);
     });
 
     function enterDashboard(showAlert = true) {
-      sessionStorage.setItem('sessionActive', 'true'); // 세션 유지 스위치 ON
+      sessionStorage.setItem('sessionActive', 'true'); 
       document.getElementById('screen-splash').classList.remove('active');
       document.getElementById('screen-dashboard').classList.add('active');
       if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
       
       initCalendar();
       
-      // 🚨 1. 듀얼 세이브 시스템: 파이어베이스 연동 전에 무조건 브라우저 내부 스토리지부터 즉각 로드!
+      // 🚨 브라우저 데이터 삭제 방지용 듀얼 세이브 엔진 탑재!
+      // 1) 캘린더 동기화 준비
       const classKey = `turit_class_${userGrade}_${userClassNum}`;
       const savedClassData = localStorage.getItem(classKey);
-      if(savedClassData) classSharedData = JSON.parse(savedClassData);
+      if(savedClassData && savedClassData !== "{}") classSharedData = JSON.parse(savedClassData);
       mergeSchedules(); 
-      listenToClassSchedule(); // DB 연동은 백그라운드에서 진행
+      listenToClassSchedule(); 
 
+      // 2) 개인 점수 동기화 준비
       const scoreKey = `turit_scores_${currentUserUid || 'guest'}`;
       const savedScoreData = localStorage.getItem(scoreKey);
-      if(savedScoreData) myScores = JSON.parse(savedScoreData);
+      if(savedScoreData && savedScoreData !== "{}") myScores = JSON.parse(savedScoreData);
       initScoreSidebar();
       listenToUserScores();    
     }
 
-    // 알림 기능
+    // 알림 기능 유지
     document.getElementById('notifyTask').addEventListener('change', function() {
       if (this.checked) {
         if (!("Notification" in window)) {
@@ -371,7 +376,7 @@
     function sendTestNotification() {
       try {
         new Notification("🔔 투릿 알림 활성화!", {
-          body: "앞으로 수행평가 제출 3일 전, 1일 전에 알림이 전송됩니다.",
+          body: "수행평가 제출 3일 전, 1일 전에 자동으로 알림이 전송됩니다.",
           icon: "https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png"
         });
       } catch(e) {
@@ -425,13 +430,30 @@
     let selectedDateKey = ""; 
     let editingTaskId = null; 
 
+    // 🚨 캘린더 실시간 DB 연동 보호 로직
     let classUnsubscribe = null;
     function listenToClassSchedule() {
       if(classUnsubscribe) classUnsubscribe();
       const docId = `g${userGrade}_c${userClassNum}`;
+      const classKey = `turit_class_${userGrade}_${userClassNum}`;
       
       classUnsubscribe = db.collection("classSchedules").doc(docId).onSnapshot((doc) => {
-        if(doc.exists) classSharedData = doc.data();
+        if(doc.exists) {
+          classSharedData = doc.data();
+          localStorage.setItem(classKey, JSON.stringify(classSharedData));
+        } else {
+          // DB가 비었을 때 로컬 데이터를 DB로 쏴버려서 복구하는 강력한 역방향 덮어쓰기!
+          const localData = localStorage.getItem(classKey);
+          if(localData && localData !== "{}") {
+            classSharedData = JSON.parse(localData);
+            db.collection("classSchedules").doc(docId).set(classSharedData).catch(e=>console.log(e));
+          } else {
+            classSharedData = {};
+          }
+        }
+        mergeSchedules();
+      }, (error) => {
+        console.error("DB 연동 에러 - 로컬 모드로 전환됩니다.", error);
         mergeSchedules();
       });
     }
@@ -451,7 +473,7 @@
       localStorage.setItem(classKey, JSON.stringify(classSharedData)); // 로컬 백업
 
       const docId = `g${userGrade}_c${userClassNum}`;
-      db.collection("classSchedules").doc(docId).set(classSharedData).catch(e => console.log("DB 저장 지연됨"));
+      db.collection("classSchedules").doc(docId).set(classSharedData).catch(e => console.log("DB 저장 권한/지연 오류"));
     }
 
     function initCalendar() { 
@@ -554,19 +576,35 @@
       }
     }
 
+    // 🚨 내 점수 보호 및 역방향 동기화
     let scoreUnsubscribe = null;
     function listenToUserScores() {
       if(!currentUserUid) return;
       if(scoreUnsubscribe) scoreUnsubscribe();
+      const scoreKey = `turit_scores_${currentUserUid}`;
       
       scoreUnsubscribe = db.collection("userScores").doc(currentUserUid).onSnapshot((doc) => {
-        if(doc.exists) myScores = doc.data();
+        if(doc.exists) {
+          myScores = doc.data();
+          localStorage.setItem(scoreKey, JSON.stringify(myScores));
+        } else {
+          // 서버에 없으면 로컬 데이터로 서버 채우기
+          const localData = localStorage.getItem(scoreKey);
+          if(localData && localData !== "{}") {
+            myScores = JSON.parse(localData);
+            db.collection("userScores").doc(currentUserUid).set(myScores).catch(e=>console.log(e));
+          } else {
+            myScores = {};
+          }
+        }
         
         if(document.getElementById('taskDetailsArea').style.display === 'block') {
           const title = document.getElementById('selectedSubjectTitle').innerText;
           const subj = title.replace(" 목록", "");
           openSubjectTasks(subj);
         }
+      }, (error) => {
+        console.error("점수 DB 연동 에러", error);
       });
     }
 
@@ -640,9 +678,9 @@
       myScores[taskKey][field] = value;
       
       const scoreKey = `turit_scores_${currentUserUid || 'guest'}`;
-      localStorage.setItem(scoreKey, JSON.stringify(myScores)); // 로컬 백업
+      localStorage.setItem(scoreKey, JSON.stringify(myScores)); 
 
-      if(currentUserUid && currentUserUid !== "demo_guest_id") {
+      if(currentUserUid) {
         db.collection("userScores").doc(currentUserUid).set(myScores).catch(e => console.log("DB 저장 지연됨"));
       }
       openSubjectTasks(subject);
@@ -737,7 +775,7 @@
         });
       }
       saveClassScheduleToServer(); 
-      mergeSchedules(); // 로컬 화면 즉시 반영
+      mergeSchedules(); // 화면 즉각 렌더링
     }
 
     function deleteTask(taskId) {
@@ -746,7 +784,7 @@
         if(classSharedData[selectedDateKey].length === 0) delete classSharedData[selectedDateKey];
         editingTaskId = null; 
         saveClassScheduleToServer(); 
-        mergeSchedules();
+        mergeSchedules(); 
       }
     }
 
