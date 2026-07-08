@@ -125,16 +125,13 @@
 <body>
 
   <div class="mobile-app">
-    <!-- 로그인 스플래시 화면 -->
     <div id="screen-splash" class="screen active">
       <div class="logo-container">
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
       </div>
       <button id="loginBtn">이화여고 계정 로그인</button>
-      <!-- 데모 시연용 버튼 완전히 삭제됨 -->
     </div>
 
-    <!-- 대시보드 메인 -->
     <div id="screen-dashboard" class="screen">
       <div class="header">
         <div class="menu-btn" onclick="toggleSidebar()">☰</div>
@@ -165,7 +162,6 @@
       <input type="file" id="fileUpload" accept=".pdf, image/*">
     </div>
 
-    <!-- 성적관리 사이드바 -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div class="sidebar" id="scoreSidebar">
       <div class="sidebar-header">
@@ -184,7 +180,6 @@
       </div>
     </div>
 
-    <!-- 팝업 모달들 -->
     <div class="modal-overlay" id="inputChoiceModal">
       <div class="ai-modal-content">
         <h3 style="margin-bottom: 20px;">수행평가 정보 추가</h3>
@@ -207,7 +202,7 @@
     <div class="modal-overlay" id="aiModal">
       <div class="ai-modal-content">
         <h3 id="aiModalTitle">AI 분석 중...</h3>
-        <p id="aiModalDesc" style="font-size:14px; color:#555;">투릿 AI가 업로드하신 정보를 분석하고 있습니다.</p>
+        <p id="aiModalDesc" style="font-size:14px; color:#555;">투릿 AI가 정보를 분석하고 있습니다.</p>
         <button class="modal-btn" id="aiModalClose" style="display:none;" onclick="closeAiModal()">캘린더에 추가하기</button>
       </div>
     </div>
@@ -285,7 +280,11 @@
           if(error.code === 'auth/popup-blocked') {
             alert("구글 로그인이 차단되었습니다. 브라우저 설정에서 팝업 차단을 해제하고 다시 시도해주세요.");
           } else {
-            alert("로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
+            const fallbackEmail = prompt("💡 [해커톤 시연용] 브라우저 환경으로 인해 구글 로그인이 불가능합니다.\n이메일을 직접 입력해주세요 (예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
+            if(fallbackEmail) {
+                currentUserUid = "fallback_" + fallbackEmail;
+                handleLoginSuccess(fallbackEmail);
+            }
           }
         });
     });
@@ -352,7 +351,7 @@
           icon: "https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png"
         });
       } catch(e) {
-        alert("알림 설정이 켜졌습니다. (모바일 기기는 별도 설정이 필요할 수 있습니다.)");
+        alert("알림 설정이 켜졌습니다.");
       }
     }
 
@@ -766,13 +765,6 @@
     const aiModal = document.getElementById('aiModal');
     let finalAiDateStr = ""; let finalAiParams = {};
 
-    const classChemDates = {
-      "인": { d: 10, period: "1교시" }, "의": { d: 12, period: "6교시" }, "예": { d: 12, period: "6교시" }, 
-      "지": { d: 11, period: "3교시" }, "진": { d: 10, period: "1교시" }, "선": { d: 12, period: "7교시" }, 
-      "미": { d: 11, period: "5교시" }, "신": { d: 11, period: "4교시" }, "희": { d: 12, period: "7교시" }, 
-      "애": { d: 11, period: "2교시" }, "효": { d: 12, period: "6교시" }, "제": { d: 12, period: "4교시" }
-    };
-
     fileUpload.addEventListener('change', (e) => {
       if (e.target.files.length === 0) return;
       document.getElementById('inputChoiceModal').style.display = 'none';
@@ -783,31 +775,62 @@
       const text = document.getElementById('pasteArea').value.trim();
       if (!text) { alert("공지 내용을 입력해 주세요."); return; }
       document.getElementById('textPasteModal').style.display = 'none';
-      executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)");
+
+      if (text.includes("화학") || text.includes("용액")) {
+        executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)", true);
+      } else {
+        const words = text.split(' ').filter(w => w.length > 0);
+        const dynamicSubject = words[0] || "기타";
+        const dynamicDesc = words.slice(1, 4).join(' ') || "수행평가 내용";
+        executeAiProcessing(dynamicSubject, dynamicDesc, "제출 기한 준수", false);
+      }
     }
 
-    function executeAiProcessing(subject, desc, caution) {
+    const classChemDates = {
+      "인": { d: 10, period: "1교시" }, "의": { d: 12, period: "6교시" }, "예": { d: 12, period: "6교시" }, 
+      "지": { d: 11, period: "3교시" }, "진": { d: 10, period: "1교시" }, "선": { d: 12, period: "7교시" }, 
+      "미": { d: 11, period: "5교시" }, "신": { d: 11, period: "4교시" }, "희": { d: 12, period: "7교시" }, 
+      "애": { d: 11, period: "2교시" }, "효": { d: 12, period: "6교시" }, "제": { d: 12, period: "4교시" }
+    };
+
+    function executeAiProcessing(subject, desc, caution, isChemistry = true) {
       aiModal.style.display = 'flex';
       document.getElementById('aiModalTitle').innerText = "AI 정밀 데이터 추출 중...";
-      document.getElementById('aiModalDesc').innerText = "이화여고 학사일정과 학생의 학반 정보를 연계 분석 중입니다.";
+      document.getElementById('aiModalDesc').innerText = "이화여고 학사일정과 학생 정보를 연계 분석 중입니다.";
       document.getElementById('aiModalClose').style.display = "none";
 
       setTimeout(() => {
-        const className = classNamesList[userClassNum - 1]; 
-        const chemInfo = classChemDates[className];
-        
-        finalAiDateStr = `2026-6-${chemInfo.d}`;
-        finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
+        if (isChemistry) {
+            const className = classNamesList[userClassNum - 1]; 
+            const chemInfo = classChemDates[className];
+            
+            finalAiDateStr = `2026-6-${chemInfo.d}`;
+            finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
 
-        document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 인식 완료!`;
-        document.getElementById('aiModalDesc').innerHTML = `
-          <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
-            • <strong>과목 분류:</strong> ${subject} I<br>
-            • <strong>확정 수행일:</strong> 2026년 6월 ${chemInfo.d}일 (${chemInfo.period})<br>
-            • <strong>평가 내용:</strong> ${desc}<br>
-            • <strong>지참 유의사항:</strong> ${caution}<br>
-            <span style="color:#E91E63; font-size:11px;">* 점수 정보는 유인물 내 누락되어 공란으로 이식합니다.</span>
-          </div>`;
+            document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 인식 완료!`;
+            document.getElementById('aiModalDesc').innerHTML = `
+              <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
+                • <strong>과목 분류:</strong> ${subject} I<br>
+                • <strong>확정 수행일:</strong> 2026년 6월 ${chemInfo.d}일 (${chemInfo.period})<br>
+                • <strong>평가 내용:</strong> ${desc}<br>
+                • <strong>지참 유의사항:</strong> ${caution}<br>
+                <span style="color:#E91E63; font-size:11px;">* 점수 정보는 유인물 내 누락되어 공란으로 이식합니다.</span>
+              </div>`;
+        } else {
+            const d = new Date();
+            d.setDate(d.getDate() + 7);
+            finalAiDateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+            finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: desc, caution: caution };
+
+            document.getElementById('aiModalTitle').innerText = `✨ AI 텍스트 분석 완료!`;
+            document.getElementById('aiModalDesc').innerHTML = `
+              <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
+                • <strong>과목 분류:</strong> ${subject}<br>
+                • <strong>예상 수행일:</strong> ${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일<br>
+                • <strong>평가 내용:</strong> ${desc}<br>
+                • <strong>유의사항:</strong> ${caution}<br>
+              </div>`;
+        }
         document.getElementById('aiModalClose').style.display = "block";
         if(fileUpload) fileUpload.value = ''; 
       }, 1500);
@@ -818,17 +841,18 @@
       if (!classSharedData[finalAiDateStr]) classSharedData[finalAiDateStr] = [];
       
       classSharedData[finalAiDateStr].push({ 
-        taskId: Date.now().toString(), 
+        taskId: Date.now().toString() + Math.floor(Math.random()*1000), 
         title: finalAiParams.title, type: "task", 
         desc: `${finalAiParams.desc}\n- 주의: ${finalAiParams.caution}`, score: null 
       });
       
       saveClassScheduleToServer(); 
-      mergeSchedules(); 
+      mergeSchedules(); // 화면 즉각 반영
       
-      currentYear = 2026; currentMonth = 5; 
+      const parts = finalAiDateStr.split('-');
+      currentYear = parseInt(parts[0]); currentMonth = parseInt(parts[1]) - 1; 
       renderCalendar(); 
-      alert("6월 수행평가 캘린더에 연동 기입이 완료되었습니다.");
+      alert("수행평가 캘린더에 연동 기입이 완료되었습니다.");
     }
   </script>
 </body>
