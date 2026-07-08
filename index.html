@@ -45,7 +45,6 @@
 
     .options-area { padding: 5px 20px 10px; font-size: 13px; font-weight: 600; display: flex; justify-content: flex-end; color: #444; }
     
-    /* 달력 실선 이화그린 */
     .calendar { flex: 1; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; border-top: 2px solid var(--ewha-green); background-color: var(--ewha-green); gap: 1px; overflow-y: auto; }
     .calendar-header { grid-column: span 7; display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: 600; padding: 8px 0; background-color: #fdfdfd; border-bottom: 1px solid var(--ewha-green); color: var(--ewha-green); font-size: 14px;}
     .calendar-day { background-color: #fff; padding: 4px; display: flex; flex-direction: column; overflow: hidden; cursor: pointer; transition: background 0.2s; min-height: 60px; }
@@ -65,7 +64,6 @@
 
     /* 모달 */
     .modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 20; backdrop-filter: blur(2px); }
-    
     .date-modal-content { background: #fff; border-radius: 16px; width: 85%; max-height: 90%; display: flex; flex-direction: column; box-shadow: 0 15px 30px rgba(0,0,0,0.2); overflow: hidden; }
     .date-modal-header { background: var(--ewha-green); color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
     .date-modal-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
@@ -98,7 +96,7 @@
     .sidebar.open { left: 0; }
     
     .sidebar-header { padding: 20px; background: var(--ewha-green); display: flex; justify-content: space-between; align-items: center; }
-    .sidebar-header h2 { margin: 0; font-size: 18px; color: #fff; font-weight: 700; }
+    .sidebar-header h2 { margin: 0; font-size: 18px; color: #fff; font-weight: 700; letter-spacing: 0.5px; }
     .sidebar-close { font-size: 28px; cursor: pointer; color: #fff; line-height: 1; opacity: 0.8; }
     .sidebar-content { padding: 0; overflow-y: auto; flex: 1; }
     
@@ -115,7 +113,7 @@
     .score-item { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px; margin-bottom: 12px; border-left: 4px solid var(--task-color); box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
     .score-item .task-date { font-size: 11px; color: #888; margin-bottom: 6px; font-weight: 500;}
     .score-item h4 { margin: 0 0 12px 0; font-size: 14px; color: #222; font-weight: 700;}
-    .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; color: #444; }
+    .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; color: #444; font-weight: 500; }
     .score-row input { width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; text-align: center; font-family: inherit; font-size: 13px;}
     .score-row select { width: 75px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 13px;}
     .score-result { font-size: 15px; font-weight: 700; color: var(--ewha-green); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee;}
@@ -123,12 +121,12 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
   <div class="mobile-app">
-    <!-- 로그인 스플래시 -->
-    <div id="screen-splash" class="screen active">
+    <div id="screen-splash" class="screen">
       <div class="logo-container">
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
       </div>
@@ -136,7 +134,6 @@
       <button id="guestBtn" style="background:#f0f0f0; border:none; color:#555;">데모 시연용 패스 (2학년 11반)</button>
     </div>
 
-    <!-- 대시보드 메인 -->
     <div id="screen-dashboard" class="screen">
       <div class="header">
         <div class="menu-btn" onclick="toggleSidebar()">☰</div>
@@ -167,7 +164,6 @@
       <input type="file" id="fileUpload" accept=".pdf, image/*">
     </div>
 
-    <!-- 왼쪽 성적관리 사이드바 -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div class="sidebar" id="scoreSidebar">
       <div class="sidebar-header">
@@ -186,7 +182,6 @@
       </div>
     </div>
 
-    <!-- 팝업 모달들 -->
     <div class="modal-overlay" id="inputChoiceModal">
       <div class="ai-modal-content">
         <h3 style="margin-bottom: 20px;">수행평가 정보 추가</h3>
@@ -236,58 +231,106 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.firestore(); // DB 초기화
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ hd: 'ewha.hs.kr' });
 
+    let currentUserUid = null;
+    let isGuest = false;
     let userGrade = 2; 
     let userClassNum = 11; 
     let myScores = {};
     const classNamesList = ["인", "의", "예", "지", "진", "선", "미", "신", "희", "애", "효", "제"];
 
-    // 🚨 깃허브 팝업 차단 대비 안전 로그인 폴백(Fallback) 유지
+    // 🚨 3. 새로고침 시 로그인 유지 (Auth State Listener)
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUserUid = user.uid;
+        const email = user.email;
+        const match = email.match(/^b(\d)(\d{2})\d{2}@/);
+        if(match) {
+          userGrade = parseInt(match[1]);
+          userClassNum = parseInt(match[2]);
+        }
+        enterDashboard(false); // 경고창 없이 바로 캘린더 진입
+      } else if (!isGuest) {
+        document.getElementById('screen-splash').classList.add('active');
+        document.getElementById('screen-dashboard').classList.remove('active');
+      }
+    });
+
     document.getElementById('loginBtn').addEventListener('click', () => {
       auth.signInWithPopup(provider)
         .then((result) => {
-          handleLoginSuccess(result.user.email);
+          const email = result.user.email;
+          if (!email.endsWith('@ewha.hs.kr')) {
+            alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
+            auth.signOut(); 
+          }
         })
         .catch((error) => {
           console.warn("팝업 차단 됨. 안전 모드 실행.", error);
-          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. 깃허브에 도메인을 추가했는지 확인해주세요.\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
-          if (fallbackEmail) handleLoginSuccess(fallbackEmail);
+          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. 깃허브 도메인이 승인되지 않았을 수 있습니다.\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
+          if (fallbackEmail) {
+            const match = fallbackEmail.match(/^b(\d)(\d{2})\d{2}@/);
+            if(match) {
+              isGuest = true; currentUserUid = "safe_mode_" + fallbackEmail;
+              userGrade = parseInt(match[1]); userClassNum = parseInt(match[2]);
+              enterDashboard(true);
+            } else alert('학번 형식이 매칭되지 않습니다.');
+          }
         });
     });
-    
-    function handleLoginSuccess(email) {
-      if (!email.endsWith('@ewha.hs.kr')) {
-        alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
-        auth.signOut(); 
-        return;
-      }
-      const match = email.match(/^b(\d)(\d{2})\d{2}@/);
-      if(match) {
-        userGrade = parseInt(match[1]);
-        userClassNum = parseInt(match[2]);
-        enterDashboard();
-      } else {
-        alert('학번 형식이 매칭되지 않습니다.');
-      }
-    }
 
     document.getElementById('guestBtn').addEventListener('click', () => {
+      isGuest = true; currentUserUid = "demo_guest_id";
       userGrade = 2; userClassNum = 11; 
-      enterDashboard();
+      enterDashboard(true);
     });
 
-    function enterDashboard() {
+    function enterDashboard(showAlert = true) {
       document.getElementById('screen-splash').classList.remove('active');
       document.getElementById('screen-dashboard').classList.add('active');
-      alert(`로그인 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
+      if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
+      
       initCalendar();
-      initScoreSidebar(); 
+      listenToClassSchedule(); // 반 전체 캘린더 동기화
+      listenToUserScores();    // 내 개인 점수 동기화
     }
 
-    // 🚨 2026학년도 이화여고 100% 정밀 학사일정 복원
-    const scheduleData = {
+    // 🚨 1. 알림 기능 완벽 정비 (테스트 알림 발송)
+    document.getElementById('notifyTask').addEventListener('change', function() {
+      if (this.checked) {
+        if (!("Notification" in window)) {
+          alert("이 브라우저는 알림을 지원하지 않습니다.");
+          this.checked = false;
+        } else if (Notification.permission === "granted") {
+          sendTestNotification();
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then(permission => {
+            if (permission === "granted") sendTestNotification();
+            else this.checked = false;
+          });
+        } else {
+          alert("브라우저 설정에서 알림 권한을 허용해주세요.");
+          this.checked = false;
+        }
+      }
+    });
+
+    function sendTestNotification() {
+      try {
+        new Notification("🔔 투릿 알림 활성화!", {
+          body: "앞으로 수행평가 제출 3일 전, 1일 전에 알림이 전송됩니다.",
+          icon: "https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png"
+        });
+      } catch(e) {
+        alert("알림 설정이 켜졌습니다. (모바일 기기는 별도 설정이 필요할 수 있습니다.)");
+      }
+    }
+
+    // 🚨 이화여고 공식 학사일정 (고정 데이터)
+    const officialScheduleData = {
       "2026-3-2": [{ title: "입학식/개학", type: "ewha", desc: "신입생 입학식 및 1학기 개학" }],
       "2026-3-24": [{ title: "학력평가", type: "ewha", desc: "전국연합학력평가 실시" }],
       "2026-4-27": [{ title: "중간고사", type: "ewha", desc: "1학기 중간고사 (1일차)" }],
@@ -327,11 +370,52 @@
       "2026-12-30": [{ title: "방학예배", type: "ewha", desc: "겨울방학 전 예배" }]
     };
 
+    let classSharedData = {}; // 우리 반 친구들이 공유하는 수행평가 데이터
+    let scheduleData = {}; // 공식일정 + 반 공유일정 (화면 렌더링용)
     let currentYear, currentMonth;
     let selectedDateKey = ""; 
-    let editingIndex = -1; 
+    let editingTaskId = null; // 수정 시 index 대신 고유 ID 사용
 
-    function initCalendar() { resetToToday(); }
+    // 🚨 2. 같은 반 공유 데이터 실시간 수신 (Firestore)
+    let classUnsubscribe = null;
+    function listenToClassSchedule() {
+      if(classUnsubscribe) classUnsubscribe();
+      const docId = `g${userGrade}_c${userClassNum}`;
+      
+      classUnsubscribe = db.collection("classSchedules").doc(docId).onSnapshot((doc) => {
+        if(doc.exists) {
+          classSharedData = doc.data();
+        } else {
+          classSharedData = {};
+        }
+        mergeSchedules();
+      });
+    }
+
+    function mergeSchedules() {
+      scheduleData = JSON.parse(JSON.stringify(officialScheduleData));
+      for (const date in classSharedData) {
+        if (!scheduleData[date]) scheduleData[date] = [];
+        scheduleData[date] = scheduleData[date].concat(classSharedData[date]);
+      }
+      if(currentYear) renderCalendar();
+      if(document.getElementById('dateModal').style.display === 'flex') renderDateModalBody();
+    }
+
+    function saveClassScheduleToServer() {
+      const docId = `g${userGrade}_c${userClassNum}`;
+      db.collection("classSchedules").doc(docId).set(classSharedData)
+        .catch(err => console.error("공유 에러:", err));
+    }
+
+    function initCalendar() { 
+      if(!currentYear) {
+        const today = new Date();
+        currentYear = today.getFullYear();
+        currentMonth = today.getMonth();
+      }
+      renderCalendar(); 
+    }
 
     function resetToToday() {
       const today = new Date();
@@ -408,26 +492,6 @@
       if(!hasTask) dDayContainer.innerHTML = `<span style="font-size:12px; color:#999; padding-top:4px;">예정된 수행평가가 없습니다.</span>`;
     }
 
-    // 🚨 알림 기능 복구
-    document.getElementById('notifyTask').addEventListener('change', function() {
-      if (this.checked) {
-        if (!("Notification" in window)) {
-          alert("이 브라우저는 알림 기능을 지원하지 않습니다.");
-          this.checked = false;
-        } else if (Notification.permission === "granted") {
-          alert("수행평가 알림이 활성화되었습니다! (제출 3일 전, 1일 전)");
-        } else if (Notification.permission !== "denied") {
-          Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-              alert("수행평가 알림이 활성화되었습니다!");
-            } else {
-              this.checked = false;
-            }
-          });
-        }
-      }
-    });
-
     function getSubjectArray() {
       const common = ["국어", "수학", "영어", "체육", "미술", "음악", "종교"];
       const gr1 = ["한국사", "통합사회", "통합과학", "과학탐구실험"];
@@ -439,7 +503,6 @@
       return options;
     }
 
-    // --- 왼쪽 사이드바 로직 ---
     function toggleSidebar() {
       const sidebar = document.getElementById('scoreSidebar');
       const overlay = document.getElementById('sidebarOverlay');
@@ -452,11 +515,36 @@
       }
     }
 
-    function initScoreSidebar() {
-      const storageKey = `turit_scores_g${userGrade}_c${userClassNum}`;
-      const saved = localStorage.getItem(storageKey);
-      myScores = saved ? JSON.parse(saved) : {};
+    // 🚨 4. 사용자별 개인 점수 영구 저장 (Firestore 연동)
+    let scoreUnsubscribe = null;
+    function listenToUserScores() {
+      if(!currentUserUid) return;
+      if(scoreUnsubscribe) scoreUnsubscribe();
       
+      scoreUnsubscribe = db.collection("userScores").doc(currentUserUid).onSnapshot((doc) => {
+        if(doc.exists) {
+          myScores = doc.data();
+        } else {
+          myScores = {};
+        }
+        
+        const subList = document.getElementById('subjectListArea');
+        let liHtml = '';
+        getSubjectArray().forEach(sub => {
+          liHtml += `<li onclick="openSubjectTasks('${sub}')">${sub}</li>`;
+        });
+        subList.innerHTML = liHtml;
+        
+        if(document.getElementById('taskDetailsArea').style.display === 'block') {
+          const title = document.getElementById('selectedSubjectTitle').innerText;
+          const subj = title.replace(" 목록", "");
+          openSubjectTasks(subj);
+        }
+      });
+    }
+
+    function initScoreSidebar() {
+      // 이제 Firestore에서 실시간으로 불러오므로, 초기 목록 세팅만 해줌.
       const subList = document.getElementById('subjectListArea');
       let liHtml = '';
       getSubjectArray().forEach(sub => {
@@ -497,7 +585,8 @@
         scheduleData[date].forEach(ev => {
           if (ev.type === 'task' && ev.title.includes(subject)) {
             tasksFound = true;
-            const taskKey = `${date}_${ev.title}`; 
+            // 고유 식별키 (동기화 환경에선 taskId 사용 권장)
+            const taskKey = ev.taskId || `${date}_${ev.title}`; 
             const data = myScores[taskKey] || { raw: '', rate: 0 };
             const converted = data.raw ? ((parseFloat(data.raw) * data.rate) / 100).toFixed(1) : 0;
             
@@ -517,20 +606,23 @@
           }
         });
       });
-      if (!tasksFound) html = '<p style="color:#888; font-size:13px; text-align:center; margin-top:30px;">등록된 일정이 없습니다.</p>';
+      if (!tasksFound) html = '<p style="color:#888; font-size:13px; text-align:center; margin-top:30px; font-weight:500;">캘린더에 등록된 수행평가가 없습니다.</p>';
       container.innerHTML = html;
     }
 
     function updateTaskScore(taskKey, field, value, subject) {
       if(!myScores[taskKey]) myScores[taskKey] = { raw: '', rate: 0 };
       myScores[taskKey][field] = value;
-      localStorage.setItem(`turit_scores_g${userGrade}_c${userClassNum}`, JSON.stringify(myScores));
-      openSubjectTasks(subject);
+      
+      // Firestore에 영구 저장
+      if(currentUserUid) {
+        db.collection("userScores").doc(currentUserUid).set(myScores);
+      }
     }
 
-    // --- 날짜 상세 팝업 (수정, 삭제, 기입) ---
+    // --- 🚨 날짜 상세 팝업 (DB 연동 버전) ---
     function openDateModal(y, m, d) {
-      editingIndex = -1; 
+      editingTaskId = null; 
       selectedDateKey = `${y}-${m}-${d}`;
       document.getElementById('dateModalTitle').innerText = `${y}년 ${m}월 ${d}일`;
       renderDateModalBody();
@@ -543,17 +635,18 @@
       const bodyEl = document.getElementById('dateModalBody');
       bodyEl.innerHTML = ''; let displayCount = 0;
 
-      events.forEach((ev, index) => {
+      events.forEach((ev) => {
         if (ev.type === 'ewha' && !showEwha) return; 
         displayCount++;
         const badgeColor = ev.type === 'ewha' ? 'var(--ewha-green)' : 'var(--task-color)';
         const badgeText = ev.type === 'ewha' ? '이화일정' : '수행평가';
         const scoreHtml = ev.score ? `<span class="score-badge">만점/비율: ${ev.score}</span>` : '';
         
+        // 수정/삭제 시 고유 ID(taskId) 사용
         const btnHtml = ev.type === 'task' ? `
           <div class="edit-del-btns">
-            <button onclick="editTask(${index})">수정</button>
-            <button onclick="deleteTask(${index})">삭제</button>
+            <button onclick="editTask('${ev.taskId}')">수정</button>
+            <button onclick="deleteTask('${ev.taskId}')">삭제</button>
           </div>` : '';
 
         bodyEl.innerHTML += `
@@ -566,7 +659,7 @@
           </div>`;
       });
 
-      if (displayCount === 0) bodyEl.innerHTML = `<p style="text-align:center; color:#999; font-size:14px; margin: 20px 0;">등록된 일정이 없습니다.</p>`;
+      if (displayCount === 0) bodyEl.innerHTML = `<p style="text-align:center; color:#999; font-size:14px; margin: 20px 0; font-weight:500;">등록된 일정이 없습니다.</p>`;
 
       const subOptions = getSubjectArray().map(sub => `<option value="${sub}">${sub}</option>`).join('');
       bodyEl.innerHTML += `
@@ -579,9 +672,11 @@
         </div>`;
     }
 
-    function editTask(index) {
-      editingIndex = index;
-      const ev = scheduleData[selectedDateKey][index];
+    function editTask(taskId) {
+      editingTaskId = taskId;
+      const ev = classSharedData[selectedDateKey].find(t => t.taskId === taskId);
+      if(!ev) return;
+
       const subjectMatch = ev.title.split(' ')[0]; 
       const selectEl = document.getElementById('newSubject');
       for (let i = 0; i < selectEl.options.length; i++) {
@@ -599,21 +694,35 @@
       const score = document.getElementById('newScore').value.trim();
       if (!desc) { alert("내용을 입력해주세요!"); return; }
 
-      const newTask = { title: `${subject} 수행평가`, type: 'task', desc: desc, score: score === "" ? null : score };
-      if (editingIndex > -1) { scheduleData[selectedDateKey][editingIndex] = newTask; editingIndex = -1; } 
-      else { if (!scheduleData[selectedDateKey]) scheduleData[selectedDateKey] = []; scheduleData[selectedDateKey].push(newTask); }
-      renderDateModalBody(); renderCalendar();
+      if (!classSharedData[selectedDateKey]) classSharedData[selectedDateKey] = [];
+
+      if (editingTaskId) {
+        const idx = classSharedData[selectedDateKey].findIndex(t => t.taskId === editingTaskId);
+        if(idx > -1) {
+          classSharedData[selectedDateKey][idx] = { 
+            taskId: editingTaskId, title: `${subject} 수행평가`, type: 'task', desc: desc, score: score === "" ? null : score 
+          };
+        }
+        editingTaskId = null; 
+      } else {
+        classSharedData[selectedDateKey].push({
+          taskId: Date.now().toString(), // 고유 ID 부여
+          title: `${subject} 수행평가`, type: 'task', desc: desc, score: score === "" ? null : score 
+        });
+      }
+      saveClassScheduleToServer(); // 🚨 서버에 실시간 저장
     }
 
-    function deleteTask(index) {
-      if(confirm("이 일정을 삭제하시겠습니까?")) {
-        scheduleData[selectedDateKey].splice(index, 1);
-        if(scheduleData[selectedDateKey].length === 0) delete scheduleData[selectedDateKey];
-        editingIndex = -1; renderDateModalBody(); renderCalendar();
+    function deleteTask(taskId) {
+      if(confirm("이 일정을 삭제하시겠습니까? (반 친구들의 캘린더에서도 사라집니다)")) {
+        classSharedData[selectedDateKey] = classSharedData[selectedDateKey].filter(t => t.taskId !== taskId);
+        if(classSharedData[selectedDateKey].length === 0) delete classSharedData[selectedDateKey];
+        editingTaskId = null; 
+        saveClassScheduleToServer(); // 🚨 서버에 실시간 삭제 반영
       }
     }
 
-    // --- 🚨 초정밀 AI 엔진 복구 분과 (반별 맞춤 6월 고정) ---
+    // --- AI 엔진 (반별 맞춤 6월 고정) ---
     function openInputChoice() { document.getElementById('inputChoiceModal').style.display = 'flex'; }
     function triggerFileUpload() { document.getElementById('inputChoiceModal').style.display = 'none'; document.getElementById('fileUpload').click(); }
     function openTextPaste() { document.getElementById('inputChoiceModal').style.display = 'none'; document.getElementById('textPasteModal').style.display = 'flex'; }
@@ -651,7 +760,6 @@
         const className = classNamesList[userClassNum - 1]; 
         const chemInfo = classChemDates[className];
         
-        // 🚨 6월달 데이터 정밀 동기화 완벽 복구
         finalAiDateStr = `2026-6-${chemInfo.d}`;
         finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
 
@@ -671,14 +779,16 @@
 
     function closeAiModal() {
       aiModal.style.display = 'none';
-      if (!scheduleData[finalAiDateStr]) scheduleData[finalAiDateStr] = [];
+      if (!classSharedData[finalAiDateStr]) classSharedData[finalAiDateStr] = [];
       
-      scheduleData[finalAiDateStr].push({ 
+      classSharedData[finalAiDateStr].push({ 
+        taskId: Date.now().toString(), // AI가 등록한 일정도 고유 ID 부여 (수정/삭제용)
         title: finalAiParams.title, type: "task", 
         desc: `${finalAiParams.desc}\n- 주의: ${finalAiParams.caution}`, score: null 
       });
       
-      // 기입된 6월 달력 뷰로 다이렉트 랜딩
+      saveClassScheduleToServer(); // 🚨 서버에 실시간 저장 (반 친구들과 공유)
+      
       currentYear = 2026; currentMonth = 5; 
       renderCalendar(); 
       alert("6월 수행평가 캘린더에 연동 기입이 완료되었습니다.");
