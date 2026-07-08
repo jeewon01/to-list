@@ -56,7 +56,6 @@
     
     .event-label { font-size: 9px; padding: 3px 4px; margin-bottom: 2px; border-radius: 4px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; pointer-events: none; line-height: 1.1; }
     .event-ewha { background-color: var(--ewha-green); } 
-    /* 동적 컬러 적용을 위해 css 변수는 인라인으로 대체 */
 
     .add-entry-btn { position: absolute; bottom: 24px; right: 24px; width: 52px; height: 52px; background-color: var(--primary-blue); border: none; border-radius: 50%; color: #fff; font-size: 28px; font-weight: 300; cursor: pointer; box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4); z-index: 5; transition: transform 0.2s; }
     .add-entry-btn:active { transform: scale(0.9); }
@@ -132,12 +131,12 @@
 <body>
 
   <div class="mobile-app">
+    <!-- 🚨 오직 이화여고 계정 로그인만 남은 스플래시 화면 -->
     <div id="screen-splash" class="screen active">
       <div class="logo-container">
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
       </div>
       <button id="loginBtn">이화여고 계정 로그인</button>
-      <button id="guestBtn" style="background:#f0f0f0; border:none; color:#555;">데모 시연용 패스 (2학년 11반)</button>
     </div>
 
     <div id="screen-dashboard" class="screen">
@@ -186,6 +185,7 @@
           <div id="taskScoresContainer"></div>
         </div>
         
+        <!-- 👑 마스터 관리자 패널 -->
         <div id="adminPanel">
           <h4>👑 마스터 관리자 메뉴</h4>
           <button class="admin-btn admin-btn-red" onclick="resetAllData()">전교생 수행평가 기록 초기화</button>
@@ -194,6 +194,7 @@
       </div>
     </div>
 
+    <!-- 팝업 모달들 -->
     <div class="modal-overlay" id="inputChoiceModal">
       <div class="ai-modal-content">
         <h3 style="margin-bottom: 20px;">수행평가 정보 추가</h3>
@@ -256,8 +257,7 @@
     provider.setCustomParameters({ hd: 'ewha.hs.kr' });
 
     let currentUserUid = null;
-    let isGuest = false;
-    let isMaster = false; // 👑 마스터 계정 플래그
+    let isMaster = false; 
     const MASTER_EMAIL = "a01087773621@gmail.com";
     let userGrade = 2; 
     let userClassNum = 11; 
@@ -279,7 +279,6 @@
 
     function goToSplash() {
       sessionStorage.removeItem('sessionActive');
-      sessionStorage.removeItem('isGuest');
       sessionStorage.removeItem('isMaster');
       document.getElementById('screen-dashboard').classList.remove('active');
       document.getElementById('screen-splash').classList.add('active');
@@ -290,13 +289,6 @@
         if (sessionStorage.getItem('isMaster') === 'true') {
           isMaster = true; userGrade = 0; userClassNum = 0;
           enterDashboard(false);
-        } else if (sessionStorage.getItem('isGuest') === 'true') {
-          isGuest = true; 
-          let demoId = localStorage.getItem('turit_demo_id');
-          if(!demoId) { demoId = "guest_" + Date.now(); localStorage.setItem('turit_demo_id', demoId); }
-          currentUserUid = demoId;
-          userGrade = 2; userClassNum = 11;
-          enterDashboard(false); 
         }
       }
     });
@@ -311,7 +303,7 @@
             const match = email.match(/^b(\d)(\d{2})\d{2}@/);
             if(match) { userGrade = parseInt(match[1]); userClassNum = parseInt(match[2]); }
         }
-        if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') !== 'true') {
+        if (sessionStorage.getItem('sessionActive') === 'true') {
           enterDashboard(false); 
         }
       }
@@ -326,7 +318,7 @@
         .then((result) => { handleLoginSuccess(result.user.email); })
         .catch((error) => {
           console.warn("팝업 차단됨:", error);
-          const fallbackEmail = prompt("💡 [시연 모드] 브라우저 보안에 의해 구글 팝업이 차단되었습니다.\n이메일을 직접 입력하세요:\n(예: b21123@ewha.hs.kr 또는 마스터 계정)", "b21123@ewha.hs.kr");
+          const fallbackEmail = prompt("💡 [긴급 우회 모드] 브라우저 보안에 의해 구글 팝업이 차단되었습니다.\n이화여고 이메일(또는 마스터 계정)을 직접 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
           if (fallbackEmail) {
             currentUserUid = "safe_mode_" + fallbackEmail;
             handleLoginSuccess(fallbackEmail);
@@ -338,7 +330,6 @@
       if (email === MASTER_EMAIL) {
         isMaster = true;
         sessionStorage.setItem('isMaster', 'true');
-        sessionStorage.setItem('isGuest', 'false');
         userGrade = 0; userClassNum = 0; 
         enterDashboard(true);
         return;
@@ -352,24 +343,12 @@
       if(match) {
         userGrade = parseInt(match[1]);
         userClassNum = parseInt(match[2]);
-        sessionStorage.setItem('isGuest', 'false');
         sessionStorage.setItem('isMaster', 'false');
         enterDashboard(true);
       } else {
         alert('학번 형식이 올바르지 않습니다.');
       }
     }
-
-    document.getElementById('guestBtn').addEventListener('click', () => {
-      sessionStorage.setItem('isGuest', 'true');
-      sessionStorage.setItem('isMaster', 'false');
-      isGuest = true; 
-      let demoId = localStorage.getItem('turit_demo_id');
-      if(!demoId) { demoId = "guest_" + Date.now(); localStorage.setItem('turit_demo_id', demoId); }
-      currentUserUid = demoId;
-      userGrade = 2; userClassNum = 11; 
-      enterDashboard(true);
-    });
 
     function enterDashboard(showAlert = true) {
       sessionStorage.setItem('sessionActive', 'true'); 
@@ -379,7 +358,7 @@
       if(isMaster) {
         if(showAlert) alert(`👑 마스터 계정으로 접속하셨습니다.\n전체 학년/반의 수행평가를 열람합니다.`);
         document.getElementById('adminPanel').style.display = 'block';
-        document.getElementById('scoreAccordionBtn').style.display = 'none'; // 마스터는 점수환산 닫음
+        document.getElementById('scoreAccordionBtn').style.display = 'none'; 
       } else {
         if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
       }
@@ -464,7 +443,6 @@
     function listenToClassSchedule() {
       if(classUnsubscribe) classUnsubscribe();
       
-      // 👑 마스터 계정: 전교생 데이터 로드
       if(isMaster) {
         classUnsubscribe = db.collection("classSchedules").onSnapshot((snapshot) => {
           classSharedData = {};
@@ -480,7 +458,6 @@
         return;
       }
 
-      // 일반 계정: 자기 반 데이터 로드
       const docId = `g${userGrade}_c${userClassNum}`;
       const classKey = `turit_class_${userGrade}_${userClassNum}`;
       
@@ -510,14 +487,13 @@
     }
 
     function saveClassScheduleToServer() {
-      if(isMaster) return; // 마스터는 수동 작성 제한
+      if(isMaster) return; 
       const classKey = `turit_class_${userGrade}_${userClassNum}`;
       localStorage.setItem(classKey, JSON.stringify(classSharedData)); 
       const docId = `g${userGrade}_c${userClassNum}`;
       db.collection("classSchedules").doc(docId).set(classSharedData, { merge: true }).catch(e => console.log(e));
     }
 
-    // 👑 마스터 리셋 로직
     function resetAllData() {
       if(!confirm("🚨 경고 🚨\n전교생의 모든 수행평가 기록이 영구 삭제됩니다.\n정말 계속하시겠습니까?")) return;
       db.collection("classSchedules").get().then((querySnapshot) => {
@@ -562,7 +538,6 @@
         let eventHtml = '';
         events.forEach(ev => {
           if (ev.type === 'ewha' && !showEwha) return;
-          // 🎨 과목별 컬러 매핑 적용!
           const bgColor = ev.type === 'ewha' ? 'var(--ewha-green)' : getSubjectColor(ev.title);
           eventHtml += `<div class="event-label" style="background-color: ${bgColor}">${ev.title}</div>`;
         });
@@ -740,12 +715,11 @@
       events.forEach((ev) => {
         if (ev.type === 'ewha' && !showEwha) return; 
         displayCount++;
-        // 🎨 모달 뱃지도 과목 컬러 적용
         const badgeColor = ev.type === 'ewha' ? 'var(--ewha-green)' : getSubjectColor(ev.title);
         const badgeText = ev.type === 'ewha' ? '이화일정' : '수행평가';
         const scoreHtml = ev.score ? `<span class="score-badge">만점/비율: ${ev.score}</span>` : '';
         
-        const btnHtml = ev.type === 'task' ? `
+        const btnHtml = ev.type === 'task' && !isMaster ? `
           <div class="edit-del-btns">
             <button onclick="editTask('${ev.taskId}')">수정</button>
             <button onclick="deleteTask('${ev.taskId}')">삭제</button>
@@ -764,7 +738,7 @@
       if (displayCount === 0) bodyEl.innerHTML = `<p style="text-align:center; color:#999; font-size:14px; margin: 20px 0; font-weight:500;">등록된 일정이 없습니다.</p>`;
 
       if(isMaster) {
-         bodyEl.innerHTML += `<p style="text-align:center; color:red; font-size:12px; margin-top:20px;">* 마스터 계정은 일정 확인만 가능합니다.</p>`;
+         bodyEl.innerHTML += `<p style="text-align:center; color:red; font-size:12px; margin-top:20px;">* 마스터 계정은 일정 열람만 가능합니다.</p>`;
          return;
       }
 
@@ -833,7 +807,7 @@
     }
 
     function openInputChoice() { 
-      if(isMaster) { alert('마스터 계정은 추가 기능을 사용할 수 없습니다.'); return; }
+      if(isMaster) { alert('마스터 계정은 AI 분석 추가 기능을 사용할 수 없습니다.'); return; }
       document.getElementById('inputChoiceModal').style.display = 'flex'; 
     }
     function triggerFileUpload() { document.getElementById('inputChoiceModal').style.display = 'none'; document.getElementById('fileUpload').click(); }
@@ -853,7 +827,15 @@
       const text = document.getElementById('pasteArea').value.trim();
       if (!text) { alert("공지 내용을 입력해 주세요."); return; }
       document.getElementById('textPasteModal').style.display = 'none';
-      executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)");
+      
+      if (text.includes("화학") || text.includes("용액")) {
+        executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)", true);
+      } else {
+        const words = text.split(' ').filter(w => w.length > 0);
+        const dynamicSubject = words[0] || "기타";
+        const dynamicDesc = words.slice(1, 4).join(' ') || "수행평가 내용";
+        executeAiProcessing(dynamicSubject, dynamicDesc, "제출 기한 준수", false);
+      }
     }
 
     const classChemDates = {
@@ -863,28 +845,44 @@
       "애": { d: 11, period: "2교시" }, "효": { d: 12, period: "6교시" }, "제": { d: 12, period: "4교시" }
     };
 
-    function executeAiProcessing(subject, desc, caution) {
+    function executeAiProcessing(subject, desc, caution, isChemistry = true) {
       aiModal.style.display = 'flex';
       document.getElementById('aiModalTitle').innerText = "AI 정밀 데이터 추출 중...";
-      document.getElementById('aiModalDesc').innerText = "이화여고 학사일정과 학생의 학반 정보를 연계 분석 중입니다.";
+      document.getElementById('aiModalDesc').innerText = "이화여고 학사일정과 학생 정보를 연계 분석 중입니다.";
       document.getElementById('aiModalClose').style.display = "none";
 
       setTimeout(() => {
-        const className = classNamesList[userClassNum - 1] || "효"; 
-        const chemInfo = classChemDates[className] || { d: 12, period: "미정" };
-        
-        finalAiDateStr = `2026-6-${chemInfo.d}`;
-        finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
+        if (isChemistry) {
+            const className = classNamesList[userClassNum - 1] || "효"; 
+            const chemInfo = classChemDates[className] || { d: 12, period: "미정" };
+            
+            finalAiDateStr = `2026-6-${chemInfo.d}`;
+            finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
 
-        document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 인식 완료!`;
-        document.getElementById('aiModalDesc').innerHTML = `
-          <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
-            • <strong>과목 분류:</strong> ${subject} I<br>
-            • <strong>확정 수행일:</strong> 2026년 6월 ${chemInfo.d}일 (${chemInfo.period})<br>
-            • <strong>평가 내용:</strong> ${desc}<br>
-            • <strong>지참 유의사항:</strong> ${caution}<br>
-            <span style="color:#E91E63; font-size:11px;">* 점수 정보는 유인물 내 누락되어 공란으로 이식합니다.</span>
-          </div>`;
+            document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 인식 완료!`;
+            document.getElementById('aiModalDesc').innerHTML = `
+              <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
+                • <strong>과목 분류:</strong> ${subject} I<br>
+                • <strong>확정 수행일:</strong> 2026년 6월 ${chemInfo.d}일 (${chemInfo.period})<br>
+                • <strong>평가 내용:</strong> ${desc}<br>
+                • <strong>지참 유의사항:</strong> ${caution}<br>
+                <span style="color:#E91E63; font-size:11px;">* 점수 정보는 유인물 내 누락되어 공란으로 이식합니다.</span>
+              </div>`;
+        } else {
+            const d = new Date();
+            d.setDate(d.getDate() + 7);
+            finalAiDateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+            finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: desc, caution: caution };
+
+            document.getElementById('aiModalTitle').innerText = `✨ AI 텍스트 분석 완료!`;
+            document.getElementById('aiModalDesc').innerHTML = `
+              <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
+                • <strong>과목 분류:</strong> ${subject}<br>
+                • <strong>예상 수행일:</strong> ${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일<br>
+                • <strong>평가 내용:</strong> ${desc}<br>
+                • <strong>유의사항:</strong> ${caution}<br>
+              </div>`;
+        }
         document.getElementById('aiModalClose').style.display = "block";
         if(fileUpload) fileUpload.value = ''; 
       }, 1500);
@@ -895,7 +893,7 @@
       if (!classSharedData[finalAiDateStr]) classSharedData[finalAiDateStr] = [];
       
       classSharedData[finalAiDateStr].push({ 
-        taskId: Date.now().toString(), 
+        taskId: Date.now().toString() + Math.floor(Math.random()*1000), 
         title: finalAiParams.title, type: "task", 
         desc: `${finalAiParams.desc}\n- 주의: ${finalAiParams.caution}`, score: null 
       });
@@ -903,9 +901,10 @@
       saveClassScheduleToServer(); 
       mergeSchedules();
       
-      currentYear = 2026; currentMonth = 5; 
+      const parts = finalAiDateStr.split('-');
+      currentYear = parseInt(parts[0]); currentMonth = parseInt(parts[1]) - 1; 
       renderCalendar(); 
-      alert("6월 수행평가 캘린더에 연동 기입이 완료되었습니다.");
+      alert("수행평가 캘린더에 연동 기입이 완료되었습니다.");
     }
   </script>
 </body>
