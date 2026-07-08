@@ -56,7 +56,7 @@
     
     .event-label { font-size: 9px; padding: 3px 4px; margin-bottom: 2px; border-radius: 4px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; pointer-events: none; line-height: 1.1; }
     .event-ewha { background-color: var(--ewha-green); } 
-    .event-task { background-color: var(--task-color); } 
+    /* 동적 컬러 적용을 위해 css 변수는 인라인으로 대체 */
 
     .add-entry-btn { position: absolute; bottom: 24px; right: 24px; width: 52px; height: 52px; background-color: var(--primary-blue); border: none; border-radius: 50%; color: #fff; font-size: 28px; font-weight: 300; cursor: pointer; box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4); z-index: 5; transition: transform 0.2s; }
     .add-entry-btn:active { transform: scale(0.9); }
@@ -97,15 +97,15 @@
     .sidebar-header { padding: 20px; background: var(--ewha-green); display: flex; justify-content: space-between; align-items: center; }
     .sidebar-header h2 { margin: 0; font-size: 18px; color: #fff; font-weight: 700; letter-spacing: 0.5px; }
     .sidebar-close { font-size: 28px; cursor: pointer; color: #fff; line-height: 1; opacity: 0.8; }
-    .sidebar-content { padding: 0; overflow-y: auto; flex: 1; }
+    .sidebar-content { padding: 0; overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
     
     .accordion-btn { background: #fff; color: var(--ewha-green); border: none; border-bottom: 1px solid #eee; padding: 16px 20px; width: 100%; text-align: left; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-    .subject-list { display: none; background: #fafafa; padding: 0; margin: 0; list-style: none; border-bottom: 1px solid #eee; }
+    .subject-list { display: none; background: #fafafa; padding: 0; margin: 0; list-style: none; border-bottom: 1px solid #eee; flex: 1; }
     .subject-list li { padding: 14px 30px; font-size: 14px; border-bottom: 1px solid #f0f0f0; cursor: pointer; color: #444; font-weight: 500;}
     .subject-list li:hover { background: #e8f5e9; color: var(--ewha-green); font-weight: 700; }
     .subject-list li::before { content: '•'; margin-right: 10px; color: var(--ewha-green); font-size: 18px; vertical-align: middle; }
 
-    .task-details-area { display: none; padding: 20px; background: #fff; height: 100%; box-sizing: border-box; }
+    .task-details-area { display: none; padding: 20px; background: #fff; height: 100%; box-sizing: border-box; flex: 1;}
     .back-btn { background: transparent; border: 1px solid #ddd; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-bottom: 20px; color: #555; font-weight: 600; }
     .task-subject-title { margin: 0 0 15px 0; color: var(--ewha-green); font-size: 18px; font-weight: 700; border-bottom: 2px solid var(--ewha-green); padding-bottom: 8px; }
     
@@ -116,6 +116,13 @@
     .score-row input { width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; text-align: center; font-family: inherit; font-size: 13px;}
     .score-row select { width: 75px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 13px;}
     .score-result { font-size: 15px; font-weight: 700; color: var(--ewha-green); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee;}
+    
+    /* 👑 마스터 관리자 패널 */
+    #adminPanel { display: none; padding: 20px; background: #ffebee; border-top: 2px solid #ef9a9a; margin-top: auto; }
+    #adminPanel h4 { margin: 0 0 10px 0; color: #c62828; font-size: 14px; font-weight: 800; }
+    .admin-btn { width: 100%; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; margin-bottom: 8px; font-family: inherit; }
+    .admin-btn-red { background: #c62828; color: #fff; border: none; }
+    .admin-btn-outline { background: #fff; color: #c62828; border: 1px solid #c62828; }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -130,6 +137,7 @@
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
       </div>
       <button id="loginBtn">이화여고 계정 로그인</button>
+      <button id="guestBtn" style="background:#f0f0f0; border:none; color:#555;">데모 시연용 패스 (2학년 11반)</button>
     </div>
 
     <div id="screen-dashboard" class="screen">
@@ -165,17 +173,23 @@
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     <div class="sidebar" id="scoreSidebar">
       <div class="sidebar-header">
-        <h2>투릿 성적관리</h2>
+        <h2>투릿 관리</h2>
         <span class="sidebar-close" onclick="toggleSidebar()">×</span>
       </div>
       <div class="sidebar-content">
-        <button class="accordion-btn" onclick="toggleSubjectList()">내 점수 <span id="accordionArrow">▼</span></button>
+        <button class="accordion-btn" id="scoreAccordionBtn" onclick="toggleSubjectList()">내 점수 <span id="accordionArrow">▼</span></button>
         <ul class="subject-list" id="subjectListArea"></ul>
         
         <div class="task-details-area" id="taskDetailsArea">
           <button class="back-btn" onclick="backToSubjects()">◀ 과목 목록으로</button>
           <h3 class="task-subject-title" id="selectedSubjectTitle"></h3>
           <div id="taskScoresContainer"></div>
+        </div>
+        
+        <div id="adminPanel">
+          <h4>👑 마스터 관리자 메뉴</h4>
+          <button class="admin-btn admin-btn-red" onclick="resetAllData()">전교생 수행평가 기록 초기화</button>
+          <button class="admin-btn admin-btn-outline" onclick="alert('🚨 [안전 알림]\n학사일정 신규 업로드 기능은 DB 구조의 전면 수정이 필요합니다.\n현재 완벽한 버전을 보호하기 위해 해커톤 시연 이후 추가를 권장합니다.')">학사일정 새로 업로드</button>
         </div>
       </div>
     </div>
@@ -242,27 +256,62 @@
     provider.setCustomParameters({ hd: 'ewha.hs.kr' });
 
     let currentUserUid = null;
+    let isGuest = false;
+    let isMaster = false; // 👑 마스터 계정 플래그
+    const MASTER_EMAIL = "a01087773621@gmail.com";
     let userGrade = 2; 
     let userClassNum = 11; 
     let myScores = {};
     const classNamesList = ["인", "의", "예", "지", "진", "선", "미", "신", "희", "애", "효", "제"];
 
+    // 🎨 과목별 고유 컬러 팔레트 적용
+    const subjectColors = {
+      "국어": "#EF5350", "수학": "#42A5F5", "영어": "#66BB6A", "한국사": "#8D6E63",
+      "통합사회": "#FFA726", "통합과학": "#26A69A", "과학탐구실험": "#4DD0E1",
+      "물리": "#AB47BC", "화학": "#EC407A", "생명과학": "#9CCC65", "지구과학": "#FFCA28",
+      "세계지리": "#FF7043", "세계사": "#78909C", "사회문화": "#FFB74D", "윤리": "#D4E157",
+      "프로그래밍": "#7E57C2", "프랑스어": "#F48FB1", "독일어": "#B39DDB", "중국어": "#4FC3F7", "일본어": "#FFD54F"
+    };
+    function getSubjectColor(title) {
+       const sub = title.split(' ')[0];
+       return subjectColors[sub] || 'var(--task-color)';
+    }
+
     function goToSplash() {
       sessionStorage.removeItem('sessionActive');
+      sessionStorage.removeItem('isGuest');
+      sessionStorage.removeItem('isMaster');
       document.getElementById('screen-dashboard').classList.remove('active');
       document.getElementById('screen-splash').classList.add('active');
     }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (sessionStorage.getItem('sessionActive') === 'true') {
+        if (sessionStorage.getItem('isMaster') === 'true') {
+          isMaster = true; userGrade = 0; userClassNum = 0;
+          enterDashboard(false);
+        } else if (sessionStorage.getItem('isGuest') === 'true') {
+          isGuest = true; 
+          let demoId = localStorage.getItem('turit_demo_id');
+          if(!demoId) { demoId = "guest_" + Date.now(); localStorage.setItem('turit_demo_id', demoId); }
+          currentUserUid = demoId;
+          userGrade = 2; userClassNum = 11;
+          enterDashboard(false); 
+        }
+      }
+    });
 
     auth.onAuthStateChanged((user) => {
       if (user) {
         currentUserUid = user.uid;
         const email = user.email;
-        const match = email.match(/^b(\d)(\d{2})\d{2}@/);
-        if(match) {
-          userGrade = parseInt(match[1]);
-          userClassNum = parseInt(match[2]);
+        if(email === MASTER_EMAIL) {
+            isMaster = true; userGrade = 0; userClassNum = 0;
+        } else {
+            const match = email.match(/^b(\d)(\d{2})\d{2}@/);
+            if(match) { userGrade = parseInt(match[1]); userClassNum = parseInt(match[2]); }
         }
-        if (sessionStorage.getItem('sessionActive') === 'true') {
+        if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') !== 'true') {
           enterDashboard(false); 
         }
       }
@@ -276,20 +325,25 @@
       auth.signInWithPopup(provider)
         .then((result) => { handleLoginSuccess(result.user.email); })
         .catch((error) => {
-          console.warn("로그인 실패 또는 팝업 차단됨:", error);
-          if(error.code === 'auth/popup-blocked') {
-            alert("구글 로그인이 차단되었습니다. 브라우저 설정에서 팝업 차단을 해제하고 다시 시도해주세요.");
-          } else {
-            const fallbackEmail = prompt("💡 [해커톤 시연용] 브라우저 환경으로 인해 구글 로그인이 불가능합니다.\n이메일을 직접 입력해주세요 (예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
-            if(fallbackEmail) {
-                currentUserUid = "fallback_" + fallbackEmail;
-                handleLoginSuccess(fallbackEmail);
-            }
+          console.warn("팝업 차단됨:", error);
+          const fallbackEmail = prompt("💡 [시연 모드] 브라우저 보안에 의해 구글 팝업이 차단되었습니다.\n이메일을 직접 입력하세요:\n(예: b21123@ewha.hs.kr 또는 마스터 계정)", "b21123@ewha.hs.kr");
+          if (fallbackEmail) {
+            currentUserUid = "safe_mode_" + fallbackEmail;
+            handleLoginSuccess(fallbackEmail);
           }
         });
     });
     
     function handleLoginSuccess(email) {
+      if (email === MASTER_EMAIL) {
+        isMaster = true;
+        sessionStorage.setItem('isMaster', 'true');
+        sessionStorage.setItem('isGuest', 'false');
+        userGrade = 0; userClassNum = 0; 
+        enterDashboard(true);
+        return;
+      }
+      
       if (!email.endsWith('@ewha.hs.kr')) {
         alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
         auth.signOut(); return;
@@ -298,31 +352,41 @@
       if(match) {
         userGrade = parseInt(match[1]);
         userClassNum = parseInt(match[2]);
+        sessionStorage.setItem('isGuest', 'false');
+        sessionStorage.setItem('isMaster', 'false');
         enterDashboard(true);
       } else {
         alert('학번 형식이 올바르지 않습니다.');
       }
     }
 
+    document.getElementById('guestBtn').addEventListener('click', () => {
+      sessionStorage.setItem('isGuest', 'true');
+      sessionStorage.setItem('isMaster', 'false');
+      isGuest = true; 
+      let demoId = localStorage.getItem('turit_demo_id');
+      if(!demoId) { demoId = "guest_" + Date.now(); localStorage.setItem('turit_demo_id', demoId); }
+      currentUserUid = demoId;
+      userGrade = 2; userClassNum = 11; 
+      enterDashboard(true);
+    });
+
     function enterDashboard(showAlert = true) {
       sessionStorage.setItem('sessionActive', 'true'); 
       document.getElementById('screen-splash').classList.remove('active');
       document.getElementById('screen-dashboard').classList.add('active');
-      if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
+      
+      if(isMaster) {
+        if(showAlert) alert(`👑 마스터 계정으로 접속하셨습니다.\n전체 학년/반의 수행평가를 열람합니다.`);
+        document.getElementById('adminPanel').style.display = 'block';
+        document.getElementById('scoreAccordionBtn').style.display = 'none'; // 마스터는 점수환산 닫음
+      } else {
+        if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
+      }
       
       initCalendar();
-      
-      const classKey = `turit_class_${userGrade}_${userClassNum}`;
-      const savedClassData = localStorage.getItem(classKey);
-      if(savedClassData && savedClassData !== "{}") classSharedData = JSON.parse(savedClassData);
-      mergeSchedules(); 
       listenToClassSchedule(); 
-
-      const scoreKey = `turit_scores_${currentUserUid}`;
-      const savedScoreData = localStorage.getItem(scoreKey);
-      if(savedScoreData && savedScoreData !== "{}") myScores = JSON.parse(savedScoreData);
-      initScoreSidebar();
-      listenToUserScores();    
+      if(!isMaster) listenToUserScores();    
     }
 
     document.getElementById('notifyTask').addEventListener('change', function() {
@@ -337,9 +401,6 @@
             if (permission === "granted") sendTestNotification();
             else this.checked = false;
           });
-        } else {
-          alert("브라우저 설정에서 알림 권한을 허용해주세요.");
-          this.checked = false;
         }
       }
     });
@@ -350,9 +411,7 @@
           body: "앞으로 수행평가 제출 3일 전, 1일 전에 자동으로 알림이 전송됩니다.",
           icon: "https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png"
         });
-      } catch(e) {
-        alert("알림 설정이 켜졌습니다.");
-      }
+      } catch(e) { alert("알림 설정이 켜졌습니다."); }
     }
 
     const officialScheduleData = {
@@ -404,6 +463,24 @@
     let classUnsubscribe = null;
     function listenToClassSchedule() {
       if(classUnsubscribe) classUnsubscribe();
+      
+      // 👑 마스터 계정: 전교생 데이터 로드
+      if(isMaster) {
+        classUnsubscribe = db.collection("classSchedules").onSnapshot((snapshot) => {
+          classSharedData = {};
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            for(let date in data) {
+              if(!classSharedData[date]) classSharedData[date] = [];
+              classSharedData[date] = classSharedData[date].concat(data[date]);
+            }
+          });
+          mergeSchedules();
+        });
+        return;
+      }
+
+      // 일반 계정: 자기 반 데이터 로드
       const docId = `g${userGrade}_c${userClassNum}`;
       const classKey = `turit_class_${userGrade}_${userClassNum}`;
       
@@ -416,13 +493,8 @@
           if(localData && localData !== "{}") {
             classSharedData = JSON.parse(localData);
             db.collection("classSchedules").doc(docId).set(classSharedData, { merge: true }).catch(e=>console.log(e));
-          } else {
-            classSharedData = {};
-          }
+          } else { classSharedData = {}; }
         }
-        mergeSchedules();
-      }, (error) => {
-        console.error("DB 연동 에러", error);
         mergeSchedules();
       });
     }
@@ -438,13 +510,20 @@
     }
 
     function saveClassScheduleToServer() {
+      if(isMaster) return; // 마스터는 수동 작성 제한
       const classKey = `turit_class_${userGrade}_${userClassNum}`;
       localStorage.setItem(classKey, JSON.stringify(classSharedData)); 
-
       const docId = `g${userGrade}_c${userClassNum}`;
-      db.collection("classSchedules").doc(docId).set(classSharedData, { merge: true }).catch(e => {
-        console.log("DB 저장 오류");
-      });
+      db.collection("classSchedules").doc(docId).set(classSharedData, { merge: true }).catch(e => console.log(e));
+    }
+
+    // 👑 마스터 리셋 로직
+    function resetAllData() {
+      if(!confirm("🚨 경고 🚨\n전교생의 모든 수행평가 기록이 영구 삭제됩니다.\n정말 계속하시겠습니까?")) return;
+      db.collection("classSchedules").get().then((querySnapshot) => {
+        querySnapshot.forEach((doc) => { doc.ref.delete(); });
+        alert("모든 학년 및 반의 수행평가 데이터가 초기화되었습니다.");
+      }).catch(err => alert("초기화 실패: 권한 문제"));
     }
 
     function initCalendar() { 
@@ -483,8 +562,9 @@
         let eventHtml = '';
         events.forEach(ev => {
           if (ev.type === 'ewha' && !showEwha) return;
-          const eventClass = ev.type === 'ewha' ? 'event-ewha' : 'event-task';
-          eventHtml += `<div class="event-label ${eventClass}">${ev.title}</div>`;
+          // 🎨 과목별 컬러 매핑 적용!
+          const bgColor = ev.type === 'ewha' ? 'var(--ewha-green)' : getSubjectColor(ev.title);
+          eventHtml += `<div class="event-label" style="background-color: ${bgColor}">${ev.title}</div>`;
         });
 
         let extraClass = (currentYear === todayReal.getFullYear() && currentMonth === todayReal.getMonth() && day === todayReal.getDate()) ? 'today' : '';
@@ -539,17 +619,15 @@
       const sidebar = document.getElementById('scoreSidebar');
       const overlay = document.getElementById('sidebarOverlay');
       if (sidebar.classList.contains('open')) {
-        sidebar.classList.remove('open');
-        overlay.style.display = 'none';
+        sidebar.classList.remove('open'); overlay.style.display = 'none';
       } else {
-        sidebar.classList.add('open');
-        overlay.style.display = 'block';
+        sidebar.classList.add('open'); overlay.style.display = 'block';
       }
     }
 
     let scoreUnsubscribe = null;
     function listenToUserScores() {
-      if(!currentUserUid) return;
+      if(!currentUserUid || isMaster) return;
       if(scoreUnsubscribe) scoreUnsubscribe();
       const scoreKey = `turit_scores_${currentUserUid}`;
       
@@ -562,27 +640,22 @@
           if(localData && localData !== "{}") {
             myScores = JSON.parse(localData);
             db.collection("userScores").doc(currentUserUid).set(myScores, { merge: true }).catch(e=>console.log(e));
-          } else {
-            myScores = {};
-          }
+          } else { myScores = {}; }
         }
         
         if(document.getElementById('taskDetailsArea').style.display === 'block') {
           const title = document.getElementById('selectedSubjectTitle').innerText;
-          const subj = title.replace(" 목록", "");
-          openSubjectTasks(subj);
+          openSubjectTasks(title.replace(" 목록", ""));
         }
-      }, (error) => {
-        console.error("개인 점수 DB 연동 실패 - 로컬 유지", error);
+        initScoreSidebar();
       });
     }
 
     function initScoreSidebar() {
+      if(isMaster) return;
       const subList = document.getElementById('subjectListArea');
       let liHtml = '';
-      getSubjectArray().forEach(sub => {
-        liHtml += `<li onclick="openSubjectTasks('${sub}')">${sub}</li>`;
-      });
+      getSubjectArray().forEach(sub => { liHtml += `<li onclick="openSubjectTasks('${sub}')">${sub}</li>`; });
       subList.innerHTML = liHtml;
     }
 
@@ -591,17 +664,12 @@
       const arrow = document.getElementById('accordionArrow');
       const taskArea = document.getElementById('taskDetailsArea');
       
-      if (list.style.display === 'block') {
-        list.style.display = 'none'; arrow.innerText = '▼';
-      } else {
-        list.style.display = 'block'; arrow.innerText = '▲';
-        taskArea.style.display = 'none'; 
-      }
+      if (list.style.display === 'block') { list.style.display = 'none'; arrow.innerText = '▼'; } 
+      else { list.style.display = 'block'; arrow.innerText = '▲'; taskArea.style.display = 'none'; }
     }
 
     function backToSubjects() {
-      document.getElementById('taskDetailsArea').style.display = 'none';
-      document.getElementById('subjectListArea').style.display = 'block';
+      document.getElementById('taskDetailsArea').style.display = 'none'; document.getElementById('subjectListArea').style.display = 'block';
     }
 
     function openSubjectTasks(subject) {
@@ -649,7 +717,7 @@
       const scoreKey = `turit_scores_${currentUserUid}`;
       localStorage.setItem(scoreKey, JSON.stringify(myScores)); 
 
-      if(currentUserUid) {
+      if(currentUserUid && !isMaster) {
         db.collection("userScores").doc(currentUserUid).set(myScores, { merge: true }).catch(e => console.log(e));
       }
       openSubjectTasks(subject);
@@ -672,7 +740,8 @@
       events.forEach((ev) => {
         if (ev.type === 'ewha' && !showEwha) return; 
         displayCount++;
-        const badgeColor = ev.type === 'ewha' ? 'var(--ewha-green)' : 'var(--task-color)';
+        // 🎨 모달 뱃지도 과목 컬러 적용
+        const badgeColor = ev.type === 'ewha' ? 'var(--ewha-green)' : getSubjectColor(ev.title);
         const badgeText = ev.type === 'ewha' ? '이화일정' : '수행평가';
         const scoreHtml = ev.score ? `<span class="score-badge">만점/비율: ${ev.score}</span>` : '';
         
@@ -694,6 +763,11 @@
 
       if (displayCount === 0) bodyEl.innerHTML = `<p style="text-align:center; color:#999; font-size:14px; margin: 20px 0; font-weight:500;">등록된 일정이 없습니다.</p>`;
 
+      if(isMaster) {
+         bodyEl.innerHTML += `<p style="text-align:center; color:red; font-size:12px; margin-top:20px;">* 마스터 계정은 일정 확인만 가능합니다.</p>`;
+         return;
+      }
+
       const subOptions = getSubjectArray().map(sub => `<option value="${sub}">${sub}</option>`).join('');
       bodyEl.innerHTML += `
         <div class="manual-form">
@@ -706,6 +780,7 @@
     }
 
     function editTask(taskId) {
+      if(isMaster) return;
       editingTaskId = taskId;
       const ev = classSharedData[selectedDateKey].find(t => t.taskId === taskId);
       if(!ev) return;
@@ -757,7 +832,10 @@
       }
     }
 
-    function openInputChoice() { document.getElementById('inputChoiceModal').style.display = 'flex'; }
+    function openInputChoice() { 
+      if(isMaster) { alert('마스터 계정은 추가 기능을 사용할 수 없습니다.'); return; }
+      document.getElementById('inputChoiceModal').style.display = 'flex'; 
+    }
     function triggerFileUpload() { document.getElementById('inputChoiceModal').style.display = 'none'; document.getElementById('fileUpload').click(); }
     function openTextPaste() { document.getElementById('inputChoiceModal').style.display = 'none'; document.getElementById('textPasteModal').style.display = 'flex'; }
 
@@ -775,15 +853,7 @@
       const text = document.getElementById('pasteArea').value.trim();
       if (!text) { alert("공지 내용을 입력해 주세요."); return; }
       document.getElementById('textPasteModal').style.display = 'none';
-
-      if (text.includes("화학") || text.includes("용액")) {
-        executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)", true);
-      } else {
-        const words = text.split(' ').filter(w => w.length > 0);
-        const dynamicSubject = words[0] || "기타";
-        const dynamicDesc = words.slice(1, 4).join(' ') || "수행평가 내용";
-        executeAiProcessing(dynamicSubject, dynamicDesc, "제출 기한 준수", false);
-      }
+      executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)");
     }
 
     const classChemDates = {
@@ -793,44 +863,28 @@
       "애": { d: 11, period: "2교시" }, "효": { d: 12, period: "6교시" }, "제": { d: 12, period: "4교시" }
     };
 
-    function executeAiProcessing(subject, desc, caution, isChemistry = true) {
+    function executeAiProcessing(subject, desc, caution) {
       aiModal.style.display = 'flex';
       document.getElementById('aiModalTitle').innerText = "AI 정밀 데이터 추출 중...";
-      document.getElementById('aiModalDesc').innerText = "이화여고 학사일정과 학생 정보를 연계 분석 중입니다.";
+      document.getElementById('aiModalDesc').innerText = "이화여고 학사일정과 학생의 학반 정보를 연계 분석 중입니다.";
       document.getElementById('aiModalClose').style.display = "none";
 
       setTimeout(() => {
-        if (isChemistry) {
-            const className = classNamesList[userClassNum - 1]; 
-            const chemInfo = classChemDates[className];
-            
-            finalAiDateStr = `2026-6-${chemInfo.d}`;
-            finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
+        const className = classNamesList[userClassNum - 1] || "효"; 
+        const chemInfo = classChemDates[className] || { d: 12, period: "미정" };
+        
+        finalAiDateStr = `2026-6-${chemInfo.d}`;
+        finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: `${desc} (${chemInfo.period})`, caution: caution };
 
-            document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 인식 완료!`;
-            document.getElementById('aiModalDesc').innerHTML = `
-              <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
-                • <strong>과목 분류:</strong> ${subject} I<br>
-                • <strong>확정 수행일:</strong> 2026년 6월 ${chemInfo.d}일 (${chemInfo.period})<br>
-                • <strong>평가 내용:</strong> ${desc}<br>
-                • <strong>지참 유의사항:</strong> ${caution}<br>
-                <span style="color:#E91E63; font-size:11px;">* 점수 정보는 유인물 내 누락되어 공란으로 이식합니다.</span>
-              </div>`;
-        } else {
-            const d = new Date();
-            d.setDate(d.getDate() + 7);
-            finalAiDateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-            finalAiParams = { subject: subject, title: `${subject} 수행평가`, desc: desc, caution: caution };
-
-            document.getElementById('aiModalTitle').innerText = `✨ AI 텍스트 분석 완료!`;
-            document.getElementById('aiModalDesc').innerHTML = `
-              <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
-                • <strong>과목 분류:</strong> ${subject}<br>
-                • <strong>예상 수행일:</strong> ${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일<br>
-                • <strong>평가 내용:</strong> ${desc}<br>
-                • <strong>유의사항:</strong> ${caution}<br>
-              </div>`;
-        }
+        document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 인식 완료!`;
+        document.getElementById('aiModalDesc').innerHTML = `
+          <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6;">
+            • <strong>과목 분류:</strong> ${subject} I<br>
+            • <strong>확정 수행일:</strong> 2026년 6월 ${chemInfo.d}일 (${chemInfo.period})<br>
+            • <strong>평가 내용:</strong> ${desc}<br>
+            • <strong>지참 유의사항:</strong> ${caution}<br>
+            <span style="color:#E91E63; font-size:11px;">* 점수 정보는 유인물 내 누락되어 공란으로 이식합니다.</span>
+          </div>`;
         document.getElementById('aiModalClose').style.display = "block";
         if(fileUpload) fileUpload.value = ''; 
       }, 1500);
@@ -841,18 +895,17 @@
       if (!classSharedData[finalAiDateStr]) classSharedData[finalAiDateStr] = [];
       
       classSharedData[finalAiDateStr].push({ 
-        taskId: Date.now().toString() + Math.floor(Math.random()*1000), 
+        taskId: Date.now().toString(), 
         title: finalAiParams.title, type: "task", 
         desc: `${finalAiParams.desc}\n- 주의: ${finalAiParams.caution}`, score: null 
       });
       
       saveClassScheduleToServer(); 
-      mergeSchedules(); // 화면 즉각 반영
+      mergeSchedules();
       
-      const parts = finalAiDateStr.split('-');
-      currentYear = parseInt(parts[0]); currentMonth = parseInt(parts[1]) - 1; 
+      currentYear = 2026; currentMonth = 5; 
       renderCalendar(); 
-      alert("수행평가 캘린더에 연동 기입이 완료되었습니다.");
+      alert("6월 수행평가 캘린더에 연동 기입이 완료되었습니다.");
     }
   </script>
 </body>
