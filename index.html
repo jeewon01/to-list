@@ -125,7 +125,7 @@
 <body>
 
   <div class="mobile-app">
-    <!-- 🚨 로그인 스플래시 화면 (기본 활성화) -->
+    <!-- 로그인 스플래시 화면 (기본 활성화 유지) -->
     <div id="screen-splash" class="screen active">
       <div class="logo-container">
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
@@ -138,7 +138,7 @@
     <div id="screen-dashboard" class="screen">
       <div class="header">
         <div class="menu-btn" onclick="toggleSidebar()">☰</div>
-        <!-- 🚨 홈버튼 클릭 시 첫 화면으로 강제 복귀 로직 적용 -->
+        <!-- 홈버튼 클릭 시 첫 화면으로 강제 복귀 로직 -->
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="header-logo" onclick="goToSplash()">
         <div style="width: 24px;"></div>
       </div>
@@ -225,7 +225,7 @@
   </div>
 
   <script>
-    // 🚨 캘린더에서 새로고침 시 깜빡임 없이 캘린더 유지 (최우선 실행 로직)
+    // 🚨 캘린더에서 새로고침 시 화면 유지 처리
     if (sessionStorage.getItem('sessionActive') === 'true') {
       document.getElementById('screen-splash').classList.remove('active');
       document.getElementById('screen-dashboard').classList.add('active');
@@ -252,124 +252,7 @@
     let myScores = {};
     const classNamesList = ["인", "의", "예", "지", "진", "선", "미", "신", "희", "애", "효", "제"];
 
-    // 🚨 홈버튼 로직: 세션을 끊고 첫 화면(로그인)으로 복귀
-    function goToSplash() {
-      sessionStorage.removeItem('sessionActive');
-      sessionStorage.removeItem('isGuest');
-      document.getElementById('screen-dashboard').classList.remove('active');
-      document.getElementById('screen-splash').classList.add('active');
-    }
-
-    // 게스트 모드로 새로고침 시 화면 유지 로직
-    window.addEventListener('DOMContentLoaded', () => {
-      if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') === 'true') {
-        isGuest = true; currentUserUid = "demo_guest_id";
-        userGrade = 2; userClassNum = 11;
-        enterDashboard(false);
-      }
-    });
-
-    // 구글 로그인 유지 로직 (새로고침 시)
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        currentUserUid = user.uid;
-        const email = user.email;
-        const match = email.match(/^b(\d)(\d{2})\d{2}@/);
-        if(match) {
-          userGrade = parseInt(match[1]);
-          userClassNum = parseInt(match[2]);
-        }
-        // 이전에 세션이 켜져 있던 경우에만 자동 입장 (첫 접속 시에는 무조건 로그인 창 대기)
-        if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') !== 'true') {
-          enterDashboard(false); 
-        }
-      }
-    });
-
-    document.getElementById('loginBtn').addEventListener('click', () => {
-      // 이미 구글 세션이 백그라운드에 있으면 팝업 없이 즉시 입장
-      if (auth.currentUser) {
-        handleLoginSuccess(auth.currentUser.email);
-        return;
-      }
-      
-      auth.signInWithPopup(provider)
-        .then((result) => { handleLoginSuccess(result.user.email); })
-        .catch((error) => {
-          console.warn("팝업 차단됨. 안전 모드 실행.", error);
-          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. (깃허브 도메인 승인 필요)\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
-          if (fallbackEmail) {
-            currentUserUid = "safe_mode_" + fallbackEmail;
-            handleLoginSuccess(fallbackEmail);
-          }
-        });
-    });
-    
-    function handleLoginSuccess(email) {
-      if (!email.endsWith('@ewha.hs.kr')) {
-        alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
-        auth.signOut(); return;
-      }
-      const match = email.match(/^b(\d)(\d{2})\d{2}@/);
-      if(match) {
-        userGrade = parseInt(match[1]);
-        userClassNum = parseInt(match[2]);
-        sessionStorage.setItem('isGuest', 'false');
-        enterDashboard(true);
-      } else {
-        alert('학번 형식이 올바르지 않습니다.');
-      }
-    }
-
-    document.getElementById('guestBtn').addEventListener('click', () => {
-      sessionStorage.setItem('isGuest', 'true');
-      isGuest = true; currentUserUid = "demo_guest_id";
-      userGrade = 2; userClassNum = 11; 
-      enterDashboard(true);
-    });
-
-    function enterDashboard(showAlert = true) {
-      sessionStorage.setItem('sessionActive', 'true'); // 세션 활성화 기록 (새로고침 대비)
-      document.getElementById('screen-splash').classList.remove('active');
-      document.getElementById('screen-dashboard').classList.add('active');
-      if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
-      
-      initCalendar();
-      listenToClassSchedule(); 
-      listenToUserScores();    
-    }
-
-    // 알림 기능
-    document.getElementById('notifyTask').addEventListener('change', function() {
-      if (this.checked) {
-        if (!("Notification" in window)) {
-          alert("이 브라우저는 알림을 지원하지 않습니다.");
-          this.checked = false;
-        } else if (Notification.permission === "granted") {
-          sendTestNotification();
-        } else if (Notification.permission !== "denied") {
-          Notification.requestPermission().then(permission => {
-            if (permission === "granted") sendTestNotification();
-            else this.checked = false;
-          });
-        } else {
-          alert("브라우저 설정에서 알림 권한을 허용해주세요.");
-          this.checked = false;
-        }
-      }
-    });
-
-    function sendTestNotification() {
-      try {
-        new Notification("🔔 투릿 알림 활성화!", {
-          body: "앞으로 수행평가 제출 3일 전, 1일 전에 알림이 전송됩니다.",
-          icon: "https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png"
-        });
-      } catch(e) {
-        alert("알림 설정이 켜졌습니다. (모바일 기기는 별도 설정이 필요할 수 있습니다.)");
-      }
-    }
-
+    // 🚨 이화여고 공식 학사일정 (미리 로드해두어 서버 연결 전에도 즉시 렌더링되게 수정)
     const officialScheduleData = {
       "2026-3-2": [{ title: "입학식/개학", type: "ewha", desc: "신입생 입학식 및 1학기 개학" }],
       "2026-3-24": [{ title: "학력평가", type: "ewha", desc: "전국연합학력평가 실시" }],
@@ -411,10 +294,124 @@
     };
 
     let classSharedData = {}; 
-    let scheduleData = {}; 
+    let scheduleData = JSON.parse(JSON.stringify(officialScheduleData)); // 🚨 시작부터 공식일정 주입 완료
     let currentYear, currentMonth;
     let selectedDateKey = ""; 
     let editingTaskId = null; 
+
+    // 홈버튼 로직: 세션을 끊고 첫 화면(로그인)으로 복귀
+    function goToSplash() {
+      sessionStorage.removeItem('sessionActive');
+      sessionStorage.removeItem('isGuest');
+      document.getElementById('screen-dashboard').classList.remove('active');
+      document.getElementById('screen-splash').classList.add('active');
+    }
+
+    // 게스트 모드 새로고침 대응
+    window.addEventListener('DOMContentLoaded', () => {
+      if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') === 'true') {
+        isGuest = true; currentUserUid = "demo_guest_id";
+        userGrade = 2; userClassNum = 11;
+        enterDashboard(false);
+      }
+    });
+
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUserUid = user.uid;
+        const email = user.email;
+        const match = email.match(/^b(\d)(\d{2})\d{2}@/);
+        if(match) {
+          userGrade = parseInt(match[1]);
+          userClassNum = parseInt(match[2]);
+        }
+        if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') !== 'true') {
+          enterDashboard(false); 
+        }
+      }
+    });
+
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      if (auth.currentUser) {
+        handleLoginSuccess(auth.currentUser.email);
+        return;
+      }
+      auth.signInWithPopup(provider)
+        .then((result) => { handleLoginSuccess(result.user.email); })
+        .catch((error) => {
+          console.warn("팝업 차단됨. 안전 모드 실행.", error);
+          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. (깃허브 도메인 승인 필요)\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
+          if (fallbackEmail) {
+            currentUserUid = "safe_mode_" + fallbackEmail;
+            handleLoginSuccess(fallbackEmail);
+          }
+        });
+    });
+    
+    function handleLoginSuccess(email) {
+      if (!email.endsWith('@ewha.hs.kr')) {
+        alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
+        auth.signOut(); return;
+      }
+      const match = email.match(/^b(\d)(\d{2})\d{2}@/);
+      if(match) {
+        userGrade = parseInt(match[1]);
+        userClassNum = parseInt(match[2]);
+        sessionStorage.setItem('isGuest', 'false');
+        enterDashboard(true);
+      } else {
+        alert('학번 형식이 올바르지 않습니다.');
+      }
+    }
+
+    document.getElementById('guestBtn').addEventListener('click', () => {
+      sessionStorage.setItem('isGuest', 'true');
+      isGuest = true; currentUserUid = "demo_guest_id";
+      userGrade = 2; userClassNum = 11; 
+      enterDashboard(true);
+    });
+
+    function enterDashboard(showAlert = true) {
+      sessionStorage.setItem('sessionActive', 'true'); 
+      document.getElementById('screen-splash').classList.remove('active');
+      document.getElementById('screen-dashboard').classList.add('active');
+      if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
+      
+      initCalendar();
+      listenToClassSchedule(); 
+      listenToUserScores();    
+    }
+
+    // 알림 기능
+    document.getElementById('notifyTask').addEventListener('change', function() {
+      if (this.checked) {
+        if (!("Notification" in window)) {
+          alert("이 브라우저는 알림을 지원하지 않습니다.");
+          this.checked = false;
+        } else if (Notification.permission === "granted") {
+          sendTestNotification();
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then(permission => {
+            if (permission === "granted") sendTestNotification();
+            else this.checked = false;
+          });
+        } else {
+          alert("브라우저 설정에서 알림 권한을 허용해주세요.");
+          this.checked = false;
+        }
+      }
+    });
+
+    function sendTestNotification() {
+      try {
+        new Notification("🔔 투릿 알림 활성화!", {
+          body: "앞으로 수행평가 제출 3일 전, 1일 전에 알림이 전송됩니다.",
+          icon: "https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png"
+        });
+      } catch(e) {
+        alert("알림 설정이 켜졌습니다. (모바일 기기는 별도 설정이 필요할 수 있습니다.)");
+      }
+    }
 
     let classUnsubscribe = null;
     function listenToClassSchedule() {
@@ -772,6 +769,7 @@
 
     fileUpload.addEventListener('change', (e) => {
       if (e.target.files.length === 0) return;
+      document.getElementById('inputChoiceModal').style.display = 'none';
       executeAiProcessing("화학", "표준 용액 만들기", "필기구(펜), 교과서, 부교재 지참 (연필/전자기기 절대 금지)");
     });
 
