@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>투릿: 이화여고 스케줄</title>
+  
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+  
+  <style>
+    :root {
+      --primary-blue: #2196F3;
+      --secondary-green: #4CAF50;
+      --ewha-green: #005A3C;
+      --task-color: #E91E63;
+      --today-bg: #e8f5e9; 
+    }
+
+    /* 폰트 및 기본 설정 */
+    body { margin: 0; font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f0f0; letter-spacing: -0.02em; }
+    .mobile-app { width: 360px; max-width: 100%; height: 780px; background-color: #fff; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 20px rgba(0,0,0,0.1); position: relative; }
+    
+    .screen { display: none; height: 100%; flex-direction: column; }
+    .active { display: flex; }
+
+    .app-logo { width: 100%; height: auto; margin-top: 20px; }
+    
+    #screen-splash { justify-content: center; align-items: center; text-align: center; padding: 0 20px; }
+    #screen-splash button { width: 100%; padding: 15px; margin: 10px 0; background-color: #fff; border: 2px solid #000; font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 10px; transition: background 0.2s; }
+    #screen-splash button:hover { background-color: #f9f9f9; }
+
+    /* 헤더 */
+    .header { padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+    .menu-btn { font-size: 22px; cursor: pointer; color: var(--ewha-green); font-weight: bold; }
+    .header-logo { height: 32px; cursor: pointer; transition: transform 0.2s; } 
+    .header-logo:active { transform: scale(0.95); }
+    
+    .notification-dday-wrapper { display: flex; align-items: center; padding: 10px 15px; border-bottom: 2px solid #f0f0f0; gap: 10px; background: #fafafa; }
+    .notify-btn { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: #333; cursor: pointer; flex-shrink: 0; }
+    .d-day-strip { display: flex; gap: 8px; overflow-x: auto; flex: 1; padding-bottom: 2px; scrollbar-width: none; }
+    .d-day-strip::-webkit-scrollbar { display: none; }
+    .d-day-badge { padding: 4px 12px; border: 1.5px solid var(--task-color); border-radius: 15px; font-size: 11px; font-weight: 700; color: var(--task-color); white-space: nowrap; background: #fff;}
+
+    .date-section { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+    /* 🚨 월 타이틀 이화그린 적용 */
+    .date-section .month-title { color: var(--ewha-green); font-size: 26px; font-weight: 800; }
+    .date-section .nav-btn { font-size: 20px; color: #555; cursor: pointer; padding: 5px 10px; user-select: none; }
+
+    .options-area { padding: 5px 20px 10px; font-size: 13px; font-weight: 600; display: flex; justify-content: flex-end; color: #444; }
+    
+    /* 달력 실선 이화그린 */
+    .calendar { flex: 1; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; border-top: 2px solid var(--ewha-green); background-color: var(--ewha-green); gap: 1px; overflow-y: auto; }
+    .calendar-header { grid-column: span 7; display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: 600; padding: 8px 0; background-color: #fdfdfd; border-bottom: 1px solid var(--ewha-green); color: var(--ewha-green); font-size: 14px;}
+    .calendar-day { background-color: #fff; padding: 4px; display: flex; flex-direction: column; overflow: hidden; cursor: pointer; transition: background 0.2s; min-height: 60px; }
+    .calendar-day:active { background: #e0f7fa; }
+    .calendar-day.inactive { color: #ccc; pointer-events: none; background-color: #fafafa; }
+    .calendar-day.today { background-color: var(--today-bg); }
+    .calendar-day.today .date-num { color: var(--ewha-green); font-weight: 800; background: #fff; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; display: inline-block; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .calendar-day .date-num { font-size: 13px; font-weight: 600; margin-bottom: 4px; pointer-events: none; color: #333; }
+    
+    .event-label { font-size: 9px; padding: 3px 4px; margin-bottom: 2px; border-radius: 4px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; pointer-events: none; line-height: 1.1; }
+    .event-ewha { background-color: var(--ewha-green); } 
+    .event-task { background-color: var(--task-color); } 
+
+    .add-entry-btn { position: absolute; bottom: 24px; right: 24px; width: 52px; height: 52px; background-color: var(--primary-blue); border: none; border-radius: 50%; color: #fff; font-size: 28px; font-weight: 300; cursor: pointer; box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4); z-index: 5; transition: transform 0.2s; }
+    .add-entry-btn:active { transform: scale(0.9); }
+    #fileUpload { display: none; }
+
+    /* 모달 */
+    .modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 20; backdrop-filter: blur(2px); }
+    
+    .date-modal-content { background: #fff; border-radius: 16px; width: 85%; max-height: 90%; display: flex; flex-direction: column; box-shadow: 0 15px 30px rgba(0,0,0,0.2); overflow: hidden; }
+    .date-modal-header { background: var(--ewha-green); color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .date-modal-header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+    .close-btn { font-size: 24px; cursor: pointer; color: #fff; opacity: 0.8; }
+    
+    .date-modal-body { padding: 15px; overflow-y: auto; background: #fdfdfd; flex: 1; }
+    .detail-item { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); position: relative; }
+    .detail-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .score-badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; background: #fff3e0; color: #e65100; margin-left: 5px; border: 1px solid #ffe0b2; }
+    .detail-title { margin: 0 0 6px 0; font-size: 15px; color: #222; font-weight: 700; }
+    .detail-desc { margin: 0; font-size: 13px; color: #666; line-height: 1.5; }
+    
+    .edit-del-btns { position: absolute; top: 12px; right: 12px; display: flex; gap: 5px; }
+    .edit-del-btns button { border: 1px solid #ddd; background: #fff; border-radius: 6px; font-size: 11px; cursor: pointer; padding: 4px 10px; font-weight: 600; color: #555; transition: background 0.2s; }
+    .edit-del-btns button:hover { background: #f0f0f0; }
+    
+    .manual-form { background: #f5f7f6; padding: 16px; border-radius: 12px; margin-top: 20px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #eaeaea; }
+    .manual-form h4 { margin: 0; font-size: 14px; color: var(--ewha-green); font-weight: 700; }
+    .manual-form input, .manual-form select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; width: 100%; box-sizing: border-box; font-family: inherit; }
+    .manual-form input:focus, .manual-form select:focus { outline: none; border-color: var(--primary-blue); }
+    .manual-form button { background: var(--primary-blue); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
+
+    /* AI 분석 팝업 */
+    .ai-modal-content { background: #fff; padding: 25px; border-radius: 16px; width: 75%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-btn { margin-top: 10px; padding: 14px 20px; background: var(--primary-blue); color: #fff; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; width: 100%; display: block; font-size: 14px; }
+    .modal-btn.secondary { background: #666; }
+    textarea.paste-area { width: 100%; height: 120px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; box-sizing: border-box; resize: none; margin-bottom: 10px; font-family: inherit; font-size: 13px;}
+
+    /* 왼쪽 사이드바 */
+    .sidebar-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 30; transition: opacity 0.3s; }
+    .sidebar { position: absolute; top: 0; left: -280px; width: 260px; height: 100%; background: #fdfdfd; color: #333; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 40; display: flex; flex-direction: column; border-right: 2px solid var(--ewha-green); box-shadow: 5px 0 20px rgba(0,0,0,0.15); }
+    .sidebar.open { left: 0; }
+    
+    .sidebar-header { padding: 20px; background: var(--ewha-green); display: flex; justify-content: space-between; align-items: center; }
+    .sidebar-header h2 { margin: 0; font-size: 18px; color: #fff; font-weight: 700; letter-spacing: 0.5px; }
+    .sidebar-close { font-size: 28px; cursor: pointer; color: #fff; line-height: 1; opacity: 0.8; }
+    
+    .sidebar-content { padding: 0; overflow-y: auto; flex: 1; }
+    
+    .accordion-btn { background: #fff; color: var(--ewha-green); border: none; border-bottom: 1px solid #eee; padding: 16px 20px; width: 100%; text-align: left; font-size: 15px; font-weight: 700; cursor: pointer; outline: none; display: flex; justify-content: space-between; align-items: center; }
+    .accordion-btn:hover { background: #f4f9f7; }
+    
+    .subject-list { display: none; background: #fafafa; padding: 0; margin: 0; list-style: none; border-bottom: 1px solid #eee; }
+    .subject-list li { padding: 14px 30px; font-size: 14px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; color: #444; font-weight: 500;}
+    .subject-list li:hover { background: #e8f5e9; color: var(--ewha-green); font-weight: 700; }
+    .subject-list li::before { content: '•'; margin-right: 10px; color: var(--ewha-green); font-size: 18px; vertical-align: middle; }
+
+    .task-details-area { display: none; padding: 20px; background: #fff; height: 100%; box-sizing: border-box; }
+    .back-btn { background: transparent; border: 1px solid #ddd; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-bottom: 20px; color: #555; font-weight: 600; transition: background 0.2s; }
+    .back-btn:hover { background: #f0f0f0; }
+    .task-subject-title { margin: 0 0 15px 0; color: var(--ewha-green); font-size: 18px; font-weight: 700; border-bottom: 2px solid var(--ewha-green); padding-bottom: 8px; }
+    
+    .score-item { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px; margin-bottom: 12px; border-left: 4px solid var(--task-color); box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+    .score-item .task-date { font-size: 11px; color: #888; margin-bottom: 6px; font-weight: 500; }
+    .score-item h4 { margin: 0 0 12px 0; font-size: 14px; color: #222; font-weight: 700;}
+    .score-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px; color: #444; font-weight: 500; }
+    .score-row input { width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; text-align: center; font-family: inherit; font-size: 13px;}
+    .score-row select { width: 75px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 13px;}
+    .score-result { font-size: 15px; font-weight: 700; color: var(--ewha-green); text-align: right; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee;}
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+  <div class="mobile-app">
+    <div id="screen-splash" class="screen active">
+      <div class="logo-container">
+        <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
+      </div>
+      <button id="loginBtn">이화여고 계정 로그인</button>
+      <button id="guestBtn" style="background:#f0f0f0; border:none; color:#555;">테스트용 접속 (2학년 11반)</button>
+    </div>
+
+    <div id="screen-dashboard" class="screen">
+      <div class="header">
+        <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+        <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="header-logo" onclick="resetToToday()">
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="notification-dday-wrapper">
+        <label class="notify-btn">
+          <input type="checkbox" id="notifyTask"> 🔔 알림받기
+        </label>
+        <div class="d-day-strip" id="dDayContainer"></div>
+      </div>
+
+      <div class="date-section">
+        <div class="nav-btn" onclick="changeMonth(-1)">&#9664;</div>
+        <div class="month-title" id="monthDisplay"></div>
+        <div class="nav-btn" onclick="changeMonth(1)">&#9654;</div>
+      </div>
+
+      <div class="options-area">
+        <label><input type="checkbox" id="toggleEwha" checked onchange="renderCalendar()"> 이화 공식일정 표시</label>
+      </div>
+
+      <div class="calendar" id="calendarGrid"></div>
+
+      <button class="add-entry-btn" onclick="openInputChoice()">+</button>
+      <input type="file" id="fileUpload" accept=".pdf, image/*">
+    </div>
+
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="scoreSidebar">
+      <div class="sidebar-header">
+        <h2>투릿 성적관리</h2>
+        <span class="sidebar-close" onclick="toggleSidebar()">×</span>
+      </div>
+      <div class="sidebar-content">
+        <button class="accordion-btn" onclick="toggleSubjectList()">내 점수 <span id="accordionArrow">▼</span></button>
+        <ul class="subject-list" id="subjectListArea"></ul>
+        
+        <div class="task-details-area" id="taskDetailsArea">
+          <button class="back-btn" onclick="backToSubjects()">◀ 과목 목록으로</button>
+          <h3 class="task-subject-title" id="selectedSubjectTitle"></h3>
+          <div id="taskScoresContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="inputChoiceModal">
+      <div class="ai-modal-content">
+        <h3 style="margin-bottom: 20px;">수행평가 정보 추가</h3>
+        <button class="modal-btn" onclick="triggerFileUpload()">📄 파일 업로드 (PDF/사진)</button>
+        <button class="modal-btn secondary" onclick="openTextPaste()">✍️ 텍스트 직접 복붙</button>
+        <button class="modal-btn" style="background:transparent; color:#666; border:1px solid #ccc; margin-top:15px;" onclick="document.getElementById('inputChoiceModal').style.display='none'">취소</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="textPasteModal">
+      <div class="ai-modal-content">
+        <h3>텍스트로 추가하기</h3>
+        <p style="font-size:12px; color:#666; margin-bottom:15px;">선생님이 올려주신 공지를 붙여넣어주세요.</p>
+        <textarea id="pasteArea" class="paste-area" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
+        <button class="modal-btn" onclick="analyzePastedText()">AI 분석 시작</button>
+        <button class="modal-btn" style="background:transparent; color:#666; border:1px solid #ccc;" onclick="document.getElementById('textPasteModal').style.display='none'">취소</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="aiModal">
+      <div class="ai-modal-content">
+        <h3 id="aiModalTitle">AI 분석 중...</h3>
+        <p id="aiModalDesc" style="font-size:14px; color:#555;">투릿 AI가 업로드하신 정보를 분석하고 있습니다.</p>
+        <button class="modal-btn" id="aiModalClose" style="display:none;" onclick="closeAiModal()">캘린더에 추가하기</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="dateModal">
+      <div class="date-modal-content">
+        <div class="date-modal-header">
+          <h3 id="dateModalTitle"></h3>
+          <span class="close-btn" onclick="document.getElementById('dateModal').style.display='none'">×</span>
+        </div>
+        <div class="date-modal-body" id="dateModalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAMCN5WwqYuD1xqvHZWgypM7Zbw4XuiegQ",
+      authDomain: "ewhatolist.firebaseapp.com",
+      projectId: "ewhatolist",
+      storageBucket: "ewhatolist.firebasestorage.app",
+      messagingSenderId: "387414170184",
+      appId: "1:387414170184:web:c384826374e08655a0167d"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ hd: 'ewha.hs.kr' });
+
+    let userGrade = 2; 
+    let userClassNum = 11; 
+    let myScores = {};
+
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      auth.signInWithPopup(provider).then((result) => {
+        const email = result.user.email;
+        if (!email.endsWith('@ewha.hs.kr')) {
+          alert('이화여고 공식 계정만 접속 가능합니다.'); auth.signOut(); return;
+        }
+        const match = email.match(/^b(\d)(\d{2})\d{2}@/);
+        if(match) {
+          userGrade = parseInt(match[1]);
+          userClassNum = parseInt(match[2]);
+        }
+        enterDashboard();
+      });
+    });
+    
+    document.getElementById('guestBtn').addEventListener('click', () => {
+      userGrade = 2; userClassNum = 11; 
+      enterDashboard();
+    });
+
+    function enterDashboard() {
+      document.getElementById('screen-splash').classList.remove('active');
+      document.getElementById('screen-dashboard').classList.add('active');
+      initCalendar();
+      initScoreSidebar(); 
+    }
+
+    const scheduleData = {
+      "2026-3-2": [{ title: "입학식/개학", type: "ewha", desc: "신입생 입학식 및 1학기 개학" }],
+      "2026-3-24": [{ title: "학력평가", type: "ewha", desc: "전국연합학력평가 실시" }],
+      "2026-4-27": [{ title: "중간고사", type: "ewha", desc: "1학기 중간고사 (1일차)" }],
+      "2026-4-28": [{ title: "중간고사", type: "ewha", desc: "1학기 중간고사 (2일차)" }],
+      "2026-4-29": [{ title: "중간고사", type: "ewha", desc: "1학기 중간고사 (3일차)" }],
+      "2026-4-30": [{ title: "중간고사", type: "ewha", desc: "1학기 중간고사 (4일차)" }],
+      "2026-5-5": [{ title: "어린이날", type: "ewha", desc: "공휴일" }],
+      "2026-5-6": [{ title: "재량휴업일", type: "ewha", desc: "학교장 재량휴업일" }],
+      "2026-5-25": [{ title: "부처님오신날", type: "ewha", desc: "공휴일" }],
+      "2026-5-29": [{ title: "창립기념행사", type: "ewha", desc: "이화 창립기념일 행사" }],
+      "2026-6-3": [{ title: "지방선거", type: "ewha", desc: "전국동시지방선거 휴업" }],
+      "2026-6-10": [{ title: "학력평가/모평", type: "ewha", desc: "전국연합학력평가 및 모의평가" }],
+      "2026-6-30": [{ title: "기말고사", type: "ewha", desc: "1학기 기말고사 (1일차)" }],
+      "2026-7-1": [{ title: "기말고사", type: "ewha", desc: "1학기 기말고사 (2일차)" }],
+      "2026-7-2": [{ title: "기말고사", type: "ewha", desc: "1학기 기말고사 (3일차)" }],
+      "2026-7-3": [{ title: "기말고사", type: "ewha", desc: "1학기 기말고사 (4일차)" }],
+      "2026-7-15": [{ title: "방학예배", type: "ewha", desc: "여름방학 전 공식 예배" }],
+      "2026-7-17": [{ title: "제헌절", type: "ewha", desc: "대한민국 헌법 공포 기념" }],
+      "2026-7-20": [{ title: "여름방과후", type: "ewha", desc: "여름 방과후학교 시작" }],
+      "2026-8-15": [{ title: "광복절", type: "ewha", desc: "공휴일" }],
+      "2026-9-2": [{ title: "학력평가 모평", type: "ewha", desc: "9월 학력평가 및 모의평가" }],
+      "2026-9-23": [{ title: "추석연휴", type: "ewha", desc: "추석 연휴" }],
+      "2026-9-24": [{ title: "추석연휴", type: "ewha", desc: "추석 연휴" }],
+      "2026-9-25": [{ title: "추석연휴", type: "ewha", desc: "추석 연휴" }],
+      "2026-10-3": [{ title: "개천절", type: "ewha", desc: "공휴일" }],
+      "2026-10-9": [{ title: "한글날", type: "ewha", desc: "공휴일" }],
+      "2026-10-26": [{ title: "중간고사", type: "ewha", desc: "2학기 중간고사 (1일차)" }],
+      "2026-10-27": [{ title: "중간고사", type: "ewha", desc: "2학기 중간고사 (2일차)" }],
+      "2026-10-28": [{ title: "중간고사", type: "ewha", desc: "2학기 중간고사 (3일차)" }],
+      "2026-10-29": [{ title: "중간고사", type: "ewha", desc: "2학기 중간고사 (4일차)" }],
+      "2026-11-19": [{ title: "수능", type: "ewha", desc: "대학수학능력시험 (휴업)" }],
+      "2026-12-15": [{ title: "기말고사", type: "ewha", desc: "2학기 기말고사 (1일차)" }],
+      "2026-12-16": [{ title: "기말고사", type: "ewha", desc: "2학기 기말고사 (2일차)" }],
+      "2026-12-17": [{ title: "기말고사", type: "ewha", desc: "2학기 기말고사 (3일차)" }],
+      "2026-12-18": [{ title: "기말고사", type: "ewha", desc: "2학기 기말고사 (4일차)" }],
+      "2026-12-25": [{ title: "성탄절", type: "ewha", desc: "공휴일" }],
+      "2026-12-30": [{ title: "방학예배", type: "ewha", desc: "겨울방학 전 예배" }]
+    };
+
+    let currentYear, currentMonth;
+    let selectedDateKey = ""; 
+    let editingIndex = -1; 
+
+    function initCalendar() { resetToToday(); }
+
+    function resetToToday() {
+      const today = new Date();
+      currentYear = today.getFullYear();
+      currentMonth = today.getMonth();
+      renderCalendar();
+    }
+
+    function changeMonth(step) {
+      currentMonth += step;
+      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const showEwha = document.getElementById('toggleEwha').checked;
+      document.getElementById('monthDisplay').innerText = `${currentYear}년 ${currentMonth + 1}월`;
+      
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '<div class="calendar-header"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>';
+
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const todayReal = new Date();
+
+      for (let i = 0; i < firstDay; i++) { grid.innerHTML += `<div class="calendar-day inactive"></div>`; }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateKey = `${currentYear}-${currentMonth + 1}-${day}`;
+        const events = scheduleData[dateKey] || [];
+        
+        let eventHtml = '';
+        events.forEach(ev => {
+          if (ev.type === 'ewha' && !showEwha) return;
+          const eventClass = ev.type === 'ewha' ? 'event-ewha' : 'event-task';
+          eventHtml += `<div class="event-label ${eventClass}">${ev.title}</div>`;
+        });
+
+        let extraClass = (currentYear === todayReal.getFullYear() && currentMonth === todayReal.getMonth() && day === todayReal.getDate()) ? 'today' : '';
+
+        grid.innerHTML += `
+          <div class="calendar-day ${extraClass}" onclick="openDateModal(${currentYear}, ${currentMonth + 1}, ${day})">
+            <span class="date-num">${day}</span>
+            ${eventHtml}
+          </div>
+        `;
+      }
+      updateDDays();
+    }
+
+    function updateDDays() {
+      const dDayContainer = document.getElementById('dDayContainer');
+      dDayContainer.innerHTML = '';
+      const today = new Date(); today.setHours(0,0,0,0);
+      let hasTask = false;
+
+      Object.keys(scheduleData).forEach(dateStr => {
+        scheduleData[dateStr].forEach(ev => {
+          if (ev.type === 'task') { 
+            hasTask = true;
+            const [y, m, d] = dateStr.split('-');
+            const targetDate = new Date(y, m - 1, d);
+            const diffTime = targetDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays >= 0) {
+              const dText = diffDays === 0 ? 'D-Day' : `D-${diffDays}`;
+              dDayContainer.innerHTML += `<span class="d-day-badge">${dText} ${ev.title}</span>`;
+            }
+          }
+        });
+      });
+      if(!hasTask) dDayContainer.innerHTML = `<span style="font-size:12px; color:#999; padding-top:4px;">예정된 수행평가가 없습니다.</span>`;
+    }
+
+    function getSubjectArray() {
+      const common = ["국어", "수학", "영어", "체육", "미술", "음악", "종교"];
+      const gr1 = ["한국사", "통합사회", "통합과학", "과학탐구실험"];
+      const gr2 = ["물리", "화학", "생명과학", "지구과학", "세계지리", "세계사", "사회문화", "윤리", "프로그래밍", "프랑스어", "독일어", "중국어", "일본어"];
+      
+      let options = common;
+      if (userGrade === 1) options = options.concat(gr1);
+      if (userGrade === 2) options = options.concat(gr2);
+      return options;
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('scoreSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        overlay.style.display = 'none';
+      } else {
+        sidebar.classList.add('open');
+        overlay.style.display = 'block';
+      }
+    }
+
+    function initScoreSidebar() {
+      const storageKey = `turit_scores_g${userGrade}_c${userClassNum}`;
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        myScores = JSON.parse(saved);
+      } else {
+        myScores = {};
+      }
+      
+      const subList = document.getElementById('subjectListArea');
+      let liHtml = '';
+      getSubjectArray().forEach(sub => {
+        liHtml += `<li onclick="openSubjectTasks('${sub}')">${sub}</li>`;
+      });
+      subList.innerHTML = liHtml;
+    }
+
+    function toggleSubjectList() {
+      const list = document.getElementById('subjectListArea');
+      const arrow = document.getElementById('accordionArrow');
+      const taskArea = document.getElementById('taskDetailsArea');
+      
+      if (list.style.display === 'block') {
+        list.style.display = 'none';
+        arrow.innerText = '▼';
+      } else {
+        list.style.display = 'block';
+        arrow.innerText = '▲';
+        taskArea.style.display = 'none'; 
+      }
+    }
+
+    function backToSubjects() {
+      document.getElementById('taskDetailsArea').style.display = 'none';
+      document.getElementById('subjectListArea').style.display = 'block';
+    }
+
+    function openSubjectTasks(subject) {
+      document.getElementById('subjectListArea').style.display = 'none';
+      document.getElementById('taskDetailsArea').style.display = 'block';
+      document.getElementById('selectedSubjectTitle').innerText = subject + " 수행평가 목록";
+      
+      const container = document.getElementById('taskScoresContainer');
+      let html = '';
+      let tasksFound = false;
+
+      let rateOptions = [];
+      for(let i=0; i<=100; i+=5) rateOptions.push(i);
+
+      Object.keys(scheduleData).forEach(date => {
+        scheduleData[date].forEach(ev => {
+          if (ev.type === 'task' && ev.title.includes(subject)) {
+            tasksFound = true;
+            const taskKey = `${date}_${ev.title}`; 
+            
+            const data = myScores[taskKey] || { raw: '', rate: 0 };
+            const converted = data.raw ? ((parseFloat(data.raw) * data.rate) / 100).toFixed(1) : 0;
+            
+            let selectHtml = `<select onchange="updateTaskScore('${taskKey}', 'rate', this.value, '${subject}')">`;
+            rateOptions.forEach(r => {
+              selectHtml += `<option value="${r}" ${data.rate == r ? 'selected' : ''}>${r}%</option>`;
+            });
+            selectHtml += `</select>`;
+
+            html += `
+              <div class="score-item">
+                <div class="task-date">${date}</div>
+                <h4>${ev.title} <span style="font-size:11px; color:#888; font-weight:normal;">(만점: ${ev.score || '미정'})</span></h4>
+                <div class="score-row">
+                  <span>내 원점수:</span>
+                  <input type="number" value="${data.raw}" placeholder="점수" onchange="updateTaskScore('${taskKey}', 'raw', this.value, '${subject}')">
+                </div>
+                <div class="score-row">
+                  <span>환산비율:</span>
+                  ${selectHtml}
+                </div>
+                <div class="score-result">
+                  실제 반영점수: ${converted}점
+                </div>
+              </div>
+            `;
+          }
+        });
+      });
+
+      if (!tasksFound) {
+        html = '<p style="color:#888; font-size:13px; text-align:center; margin-top:30px; font-weight:500;">캘린더에 등록된 수행평가가 없습니다.</p>';
+      }
+      
+      container.innerHTML = html;
+    }
+
+    function updateTaskScore(taskKey, field, value, subject) {
+      if(!myScores[taskKey]) myScores[taskKey] = { raw: '', rate: 0 };
+      myScores[taskKey][field] = value;
+      
+      const storageKey = `turit_scores_g${userGrade}_c${userClassNum}`;
+      localStorage.setItem(storageKey, JSON.stringify(myScores));
+      
+      openSubjectTasks(subject);
+    }
+
+    function openDateModal(y, m, d) {
+      editingIndex = -1; 
+      selectedDateKey = `${y}-${m}-${d}`;
+      document.getElementById('dateModalTitle').innerText = `${y}년 ${m}월 ${d}일`;
+      renderDateModalBody();
+      document.getElementById('dateModal').style.display = 'flex';
+    }
+
+    function renderDateModalBody() {
+      const events = scheduleData[selectedDateKey] || [];
+      const showEwha = document.getElementById('toggleEwha').checked;
+      const bodyEl = document.getElementById('dateModalBody');
+      bodyEl.innerHTML = '';
+
+      let displayCount = 0;
+
+      events.forEach((ev, index) => {
+        if (ev.type === 'ewha' && !showEwha) return; 
+        displayCount++;
+        
+        const badgeColor = ev.type === 'ewha' ? 'var(--ewha-green)' : 'var(--task-color)';
+        const badgeText = ev.type === 'ewha' ? '이화일정' : '수행평가';
+        const scoreHtml = ev.score ? `<span class="score-badge">만점/비율: ${ev.score}</span>` : '';
+        const descText = ev.desc || '';
+
+        const btnHtml = ev.type === 'task' ? `
+          <div class="edit-del-btns">
+            <button onclick="editTask(${index})">수정</button>
+            <button onclick="deleteTask(${index})">삭제</button>
+          </div>
+        ` : '';
+
+        bodyEl.innerHTML += `
+          <div class="detail-item">
+            ${btnHtml}
+            <span class="detail-badge" style="background-color: ${badgeColor};">${badgeText}</span>
+            ${scoreHtml}
+            <h4 class="detail-title">${ev.title}</h4>
+            <p class="detail-desc">${descText}</p>
+          </div>
+        `;
+      });
+
+      if (displayCount === 0) {
+        bodyEl.innerHTML = `<p style="text-align:center; color:#999; font-size:14px; margin: 20px 0; font-weight:500;">등록된 일정이 없습니다.</p>`;
+      }
+
+      const subOptions = getSubjectArray().map(sub => `<option value="${sub}">${sub}</option>`).join('');
+      bodyEl.innerHTML += `
+        <div class="manual-form">
+          <h4 id="formTitle">새 수행평가 추가</h4>
+          <select id="newSubject">${subOptions}</select>
+          <input type="text" id="newDesc" placeholder="상세 내용 (예: 감상문 제출)">
+          <input type="text" id="newScore" placeholder="만점/비율 (선택 입력, 없으면 공란)">
+          <button id="submitFormBtn" onclick="addTaskManually()">일정 저장하기</button>
+        </div>
+      `;
+    }
+
+    function editTask(index) {
+      editingIndex = index;
+      const ev = scheduleData[selectedDateKey][index];
+      const subjectMatch = ev.title.split(' ')[0]; 
+      const selectEl = document.getElementById('newSubject');
+      
+      for (let i = 0; i < selectEl.options.length; i++) {
+        if (selectEl.options[i].value === subjectMatch) {
+          selectEl.selectedIndex = i;
+          break;
+        }
+      }
+      
+      document.getElementById('newDesc').value = ev.desc;
+      document.getElementById('newScore').value = ev.score || '';
+      
+      document.getElementById('formTitle').innerText = "수행평가 내용 수정";
+      document.getElementById('submitFormBtn').innerText = "수정 완료하기";
+    }
+
+    function addTaskManually() {
+      const subject = document.getElementById('newSubject').value;
+      const desc = document.getElementById('newDesc').value;
+      const score = document.getElementById('newScore').value.trim();
+
+      if (!desc) { alert("상세 내용을 입력해주세요!"); return; }
+      if (!scheduleData[selectedDateKey]) { scheduleData[selectedDateKey] = []; }
+
+      const newTask = { title: `${subject} 수행평가`, type: 'task', desc: desc, score: score === "" ? null : score };
+
+      if (editingIndex > -1) {
+        scheduleData[selectedDateKey][editingIndex] = newTask;
+        editingIndex = -1; 
+      } else {
+        scheduleData[selectedDateKey].push(newTask);
+      }
+
+      renderDateModalBody();
+      renderCalendar();
+    }
+
+    function deleteTask(index) {
+      if(confirm("이 일정을 완전히 삭제하시겠습니까?")) {
+        scheduleData[selectedDateKey].splice(index, 1);
+        if(scheduleData[selectedDateKey].length === 0) delete scheduleData[selectedDateKey];
+        editingIndex = -1;
+        renderDateModalBody();
+        renderCalendar();
+      }
+    }
+
+    // 🚨 파일 업로드 시뮬레이션 (화학 6월 일정 정밀 복구) 🚨
+    function openInputChoice() {
+      document.getElementById('inputChoiceModal').style.display = 'flex';
+    }
+
+    function triggerFileUpload() {
+      document.getElementById('inputChoiceModal').style.display = 'none';
+      document.getElementById('fileUpload').click();
+    }
+
+    function openTextPaste() {
+      document.getElementById('inputChoiceModal').style.display = 'none';
+      document.getElementById('textPasteModal').style.display = 'flex';
+    }
+
+    const fileUpload = document.getElementById('fileUpload');
+    const aiModal = document.getElementById('aiModal');
+    let finalAiDateStr = "";
+    let finalAiParams = {};
+
+    const classChemDates = {
+      "인": { d: 10, period: "1교시" },
+      "의": { d: 12, period: "6교시" }, 
+      "예": { d: 12, period: "6교시" }, 
+      "지": { d: 11, period: "3교시" }, 
+      "진": { d: 10, period: "1교시" },
+      "선": { d: 12, period: "7교시" }, 
+      "미": { d: 11, period: "5교시" },
+      "신": { d: 11, period: "4교시" },
+      "희": { d: 12, period: "7교시" },
+      "애": { d: 11, period: "2교시" },
+      "효": { d: 12, period: "6교시" },
+      "제": { d: 12, period: "4교시" }
+    };
+
+    const classNamesList = ["인", "의", "예", "지", "진", "선", "미", "신", "희", "애", "효", "제"];
+
+    fileUpload.addEventListener('change', (e) => {
+      if (e.target.files.length === 0) return;
+      document.getElementById('inputChoiceModal').style.display = 'none';
+      
+      aiModal.style.display = 'flex';
+      document.getElementById('aiModalTitle').innerText = "AI 문서 분석 중...";
+      document.getElementById('aiModalDesc').innerText = "투릿 AI가 업로드하신 파일과 학생 정보를 정밀 분석하고 있습니다.";
+      document.getElementById('aiModalClose').style.display = "none";
+
+      setTimeout(() => {
+        const className = classNamesList[userClassNum - 1]; 
+        const chemInfo = classChemDates[className];
+        
+        finalAiDateStr = `2026-6-${chemInfo.d}`;
+        
+        finalAiParams = { 
+            subject: "화학", 
+            title: `화학 수행평가 (${chemInfo.period})`,
+            desc: "표준 용액 만들기", 
+            caution: "필기구, 교과서, 부교재 지참 (연필/수정테이프/전자기기 절대 금지)" 
+        };
+
+        document.getElementById('aiModalTitle').innerText = `✨ ${userGrade}학년 ${userClassNum}반(${className}반) 맞춤 AI 분석 완료!`;
+        document.getElementById('aiModalDesc').innerHTML = `
+          <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6; border:1px solid #eee;">
+            • <strong>과목명:</strong> 화학 I<br>
+            • <strong>나의 실험일:</strong> 2026년 6월 ${chemInfo.d}일 ${chemInfo.period}<br>
+            • <strong>내용:</strong> 표준 용액 만들기<br>
+            • <strong>주의사항:</strong> 연필/수정테이프 절대 사용 금지<br>
+            <span style="color:#E91E63; font-size:12px;">* 안내문에 점수 비율이 명시되지 않아 공란 처리했습니다.</span>
+          </div>
+        `;
+        document.getElementById('aiModalClose').style.display = "block";
+        if(fileUpload) fileUpload.value = ''; 
+      }, 1500);
+    });
+
+    // 텍스트 붙여넣기 시뮬레이션 (이건 임의 날짜로 작동)
+    function analyzePastedText() {
+      const text = document.getElementById('pasteArea').value.trim();
+      if (!text) { alert("텍스트를 입력해주세요!"); return; }
+      document.getElementById('textPasteModal').style.display = 'none';
+      
+      aiModal.style.display = 'flex';
+      document.getElementById('aiModalTitle').innerText = "AI 데이터 분석 중...";
+      document.getElementById('aiModalDesc').innerText = "투릿 AI가 텍스트를 추출하고 있습니다.";
+      document.getElementById('aiModalClose').style.display = "none";
+
+      setTimeout(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        finalAiDateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        
+        const words = text.split(' ').filter(w => w.length > 0);
+        const simSubject = words[0] || "기타과목";
+        const simDesc = words.slice(1, 4).join(' ') || "세부 내용";
+
+        finalAiParams = { 
+          subject: simSubject, 
+          title: `${simSubject} 수행평가`,
+          desc: simDesc, 
+          caution: "제출 기한 준수" 
+        };
+
+        document.getElementById('aiModalTitle').innerText = `✨ 텍스트 AI 분석 완료!`;
+        document.getElementById('aiModalDesc').innerHTML = `
+          <div style="text-align:left; background:#f4f4f4; padding:12px; border-radius:8px; font-size:14px; line-height:1.6; border:1px solid #eee;">
+            • <strong>과목명:</strong> ${simSubject}<br>
+            • <strong>나의 일정:</strong> ${d.getMonth() + 1}월 ${d.getDate()}일<br>
+            • <strong>내용:</strong> ${simDesc}<br>
+          </div>
+        `;
+        document.getElementById('aiModalClose').style.display = "block";
+        document.getElementById('pasteArea').value = '';
+      }, 1500);
+    }
+
+    function closeAiModal() {
+      aiModal.style.display = 'none';
+      if (!scheduleData[finalAiDateStr]) { scheduleData[finalAiDateStr] = []; }
+      
+      scheduleData[finalAiDateStr].push({ 
+        title: finalAiParams.title, 
+        type: "task",
+        desc: `${finalAiParams.desc} (${finalAiParams.caution})`,
+        score: null 
+      });
+      
+      const parts = finalAiDateStr.split('-');
+      currentYear = parseInt(parts[0]);
+      currentMonth = parseInt(parts[1]) - 1; 
+      renderCalendar(); 
+      alert(`성공적으로 캘린더에 일정이 추가되었습니다. 캘린더를 클릭해 수정이 가능합니다.`);
+    }
+  </script>
+</body>
+</html>
