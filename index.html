@@ -62,7 +62,6 @@
     .add-entry-btn:active { transform: scale(0.9); }
     #fileUpload { display: none; }
 
-    /* 모달 */
     .modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 20; backdrop-filter: blur(2px); }
     .date-modal-content { background: #fff; border-radius: 16px; width: 85%; max-height: 90%; display: flex; flex-direction: column; box-shadow: 0 15px 30px rgba(0,0,0,0.2); overflow: hidden; }
     .date-modal-header { background: var(--ewha-green); color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
@@ -126,7 +125,7 @@
 <body>
 
   <div class="mobile-app">
-    <!-- 🚨 1. 로그인 스플래시 (기본으로 active 상태 부여됨) -->
+    <!-- 🚨 로그인 스플래시 화면 (기본 활성화) -->
     <div id="screen-splash" class="screen active">
       <div class="logo-container">
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="app-logo">
@@ -139,7 +138,7 @@
     <div id="screen-dashboard" class="screen">
       <div class="header">
         <div class="menu-btn" onclick="toggleSidebar()">☰</div>
-        <!-- 🚨 2. 홈 버튼 클릭 시 goToSplash() 실행 -->
+        <!-- 🚨 홈버튼 클릭 시 첫 화면으로 강제 복귀 로직 적용 -->
         <img src="https://i.postimg.cc/qRNGTwDc/file-0000000056f871f5b1fc04cedb4f7c14.png" alt="투릿 로고" class="header-logo" onclick="goToSplash()">
         <div style="width: 24px;"></div>
       </div>
@@ -226,6 +225,12 @@
   </div>
 
   <script>
+    // 🚨 캘린더에서 새로고침 시 깜빡임 없이 캘린더 유지 (최우선 실행 로직)
+    if (sessionStorage.getItem('sessionActive') === 'true') {
+      document.getElementById('screen-splash').classList.remove('active');
+      document.getElementById('screen-dashboard').classList.add('active');
+    }
+
     const firebaseConfig = {
       apiKey: "AIzaSyAMCN5WwqYuD1xqvHZWgypM7Zbw4XuiegQ",
       authDomain: "ewhatolist.firebaseapp.com",
@@ -247,13 +252,24 @@
     let myScores = {};
     const classNamesList = ["인", "의", "예", "지", "진", "선", "미", "신", "희", "애", "효", "제"];
 
-    // 🚨 3. 홈버튼(로고) 클릭 시 스플래시 화면으로 이동하는 함수 추가
+    // 🚨 홈버튼 로직: 세션을 끊고 첫 화면(로그인)으로 복귀
     function goToSplash() {
+      sessionStorage.removeItem('sessionActive');
+      sessionStorage.removeItem('isGuest');
       document.getElementById('screen-dashboard').classList.remove('active');
       document.getElementById('screen-splash').classList.add('active');
     }
 
-    // 새로고침 시 로그인 유지 로직 (수정하지 않음, 완벽 보존)
+    // 게스트 모드로 새로고침 시 화면 유지 로직
+    window.addEventListener('DOMContentLoaded', () => {
+      if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') === 'true') {
+        isGuest = true; currentUserUid = "demo_guest_id";
+        userGrade = 2; userClassNum = 11;
+        enterDashboard(false);
+      }
+    });
+
+    // 구글 로그인 유지 로직 (새로고침 시)
     auth.onAuthStateChanged((user) => {
       if (user) {
         currentUserUid = user.uid;
@@ -263,43 +279,57 @@
           userGrade = parseInt(match[1]);
           userClassNum = parseInt(match[2]);
         }
-        enterDashboard(false); 
-      } else if (!isGuest) {
-        document.getElementById('screen-splash').classList.add('active');
-        document.getElementById('screen-dashboard').classList.remove('active');
+        // 이전에 세션이 켜져 있던 경우에만 자동 입장 (첫 접속 시에는 무조건 로그인 창 대기)
+        if (sessionStorage.getItem('sessionActive') === 'true' && sessionStorage.getItem('isGuest') !== 'true') {
+          enterDashboard(false); 
+        }
       }
     });
 
     document.getElementById('loginBtn').addEventListener('click', () => {
+      // 이미 구글 세션이 백그라운드에 있으면 팝업 없이 즉시 입장
+      if (auth.currentUser) {
+        handleLoginSuccess(auth.currentUser.email);
+        return;
+      }
+      
       auth.signInWithPopup(provider)
-        .then((result) => {
-          const email = result.user.email;
-          if (!email.endsWith('@ewha.hs.kr')) {
-            alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
-            auth.signOut(); 
-          }
-        })
+        .then((result) => { handleLoginSuccess(result.user.email); })
         .catch((error) => {
-          console.warn("팝업 차단 됨. 안전 모드 실행.", error);
-          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. 깃허브 도메인이 승인되지 않았을 수 있습니다.\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
+          console.warn("팝업 차단됨. 안전 모드 실행.", error);
+          const fallbackEmail = prompt("💡 [해커톤 시연 모드]\n구글 팝업이 차단되었습니다. (깃허브 도메인 승인 필요)\n시연을 위해 이화여고 이메일을 입력하세요:\n(예: b21123@ewha.hs.kr)", "b21123@ewha.hs.kr");
           if (fallbackEmail) {
-            const match = fallbackEmail.match(/^b(\d)(\d{2})\d{2}@/);
-            if(match) {
-              isGuest = true; currentUserUid = "safe_mode_" + fallbackEmail;
-              userGrade = parseInt(match[1]); userClassNum = parseInt(match[2]);
-              enterDashboard(true);
-            } else alert('학번 형식이 매칭되지 않습니다.');
+            currentUserUid = "safe_mode_" + fallbackEmail;
+            handleLoginSuccess(fallbackEmail);
           }
         });
     });
+    
+    function handleLoginSuccess(email) {
+      if (!email.endsWith('@ewha.hs.kr')) {
+        alert('이화여고 공식 계정(@ewha.hs.kr)으로만 접속할 수 있습니다.');
+        auth.signOut(); return;
+      }
+      const match = email.match(/^b(\d)(\d{2})\d{2}@/);
+      if(match) {
+        userGrade = parseInt(match[1]);
+        userClassNum = parseInt(match[2]);
+        sessionStorage.setItem('isGuest', 'false');
+        enterDashboard(true);
+      } else {
+        alert('학번 형식이 올바르지 않습니다.');
+      }
+    }
 
     document.getElementById('guestBtn').addEventListener('click', () => {
+      sessionStorage.setItem('isGuest', 'true');
       isGuest = true; currentUserUid = "demo_guest_id";
       userGrade = 2; userClassNum = 11; 
       enterDashboard(true);
     });
 
     function enterDashboard(showAlert = true) {
+      sessionStorage.setItem('sessionActive', 'true'); // 세션 활성화 기록 (새로고침 대비)
       document.getElementById('screen-splash').classList.remove('active');
       document.getElementById('screen-dashboard').classList.add('active');
       if(showAlert) alert(`접속 완료: ${userGrade}학년 ${userClassNum}반 (${classNamesList[userClassNum-1]}반)`);
